@@ -30,8 +30,8 @@ cd claude-deepseek-starter
 
 | 系统 | 推荐入口 | 适合人群 |
 | --- | --- | --- |
-| macOS | `macos/install.command` | 不想手动装 Homebrew、Node、npm 的同事 |
-| Windows | `windows/setup.bat` | 希望双击安装、桌面启动的同事 |
+| macOS | `macos/install.command` | 不想手动装 Homebrew、Node、npm 的用户 |
+| Windows | `windows/setup.bat` | 希望双击安装、桌面启动的用户 |
 | Linux/Ubuntu | `linux/install.sh` | 熟悉终端、服务器、WSL 用户 |
 
 安装过程中会要求输入 DeepSeek API Key。输入时屏幕不显示是正常的，key 只会写入本机 `.env` 文件。
@@ -157,18 +157,6 @@ CLAUDE_CODE_EFFORT_LEVEL=max
     └── verify-deepseek.ps1
 ```
 
-## 安全提醒
-
-不要把真实 DeepSeek API Key 上传到 GitHub。本仓库已忽略所有 `.env` 文件。
-
-发布前建议检查：
-
-```bash
-git status --ignored
-rg "sk-" .
-```
-
-如果看到真实 key，先删除或替换后再提交。
 
 ## 常见问题
 
