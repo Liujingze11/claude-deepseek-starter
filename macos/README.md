@@ -1,53 +1,55 @@
+[中文](README.zh.md)
+
 # Claude Code + DeepSeek macOS
 
-给公司 Mac 员工使用的一键安装包：双击安装 Claude Code，并接入 DeepSeek API。
+A one-click install pack for Mac colleagues: double-click to install Claude Code with DeepSeek API.
 
-采用 Miniforge + conda 隔离环境，不要求提前安装 Homebrew、Node.js 或 npm。
+Uses Miniforge + conda isolated environment. No need for Homebrew, Node.js, or npm to be pre-installed.
 
-## 安装
+## Install
 
-1. 下载并解压这个文件夹。
-2. 双击 `install.command`。
-3. 如果 macOS 提示"无法打开"，右键 `install.command`，选择"打开"，再点"打开"。
-4. 按提示输入 DeepSeek API Key。
-5. 安装完成后，双击桌面的 `Claude Code DeepSeek`。
-6. 在弹出的窗口里选择要操作的项目文件夹。
+1. Download and unzip this folder.
+2. Double-click `install.command`.
+3. If macOS warns "cannot be opened", right-click `install.command`, select "Open", then click "Open".
+4. Enter your DeepSeek API Key when prompted.
+5. After installation, double-click `Claude Code DeepSeek` on the desktop.
+6. In the pop-up window, select your project folder.
 
-## 脚本会做什么
+## What the Script Does
 
-- 检查当前 Mac 是 Apple Silicon 还是 Intel。
-- 没有 conda 时，自动安装对应架构的 Miniforge 到 `~/miniforge3`。
-- 创建 conda 环境 `claude-code-deepseek`。
-- 在隔离环境里安装 Node.js、npm、git、curl、Claude Code。
-- 创建 `.env` 保存 DeepSeek 配置。
-- 创建命令行启动器 `~/.local/bin/claude-deepseek`。
-- 创建桌面启动器 `Claude Code DeepSeek`。
+- Detects whether your Mac is Apple Silicon or Intel.
+- If conda is not present, installs the appropriate Miniforge to `~/miniforge3`.
+- Creates the conda environment `claude-code-deepseek`.
+- Installs Node.js, npm, git, curl, and Claude Code in the isolated environment.
+- Creates `.env` to store DeepSeek configuration.
+- Creates the CLI launcher `~/.local/bin/claude-deepseek`.
+- Creates the desktop launcher `Claude Code DeepSeek`.
 
-## 每次使用
+## Daily Use
 
-双击桌面 `Claude Code DeepSeek`，选择项目文件夹。
+Double-click `Claude Code DeepSeek` on the desktop and select your project folder.
 
-如果会用终端，也可以进入项目目录后运行：
+Terminal users can also:
 
 ```bash
 claude-deepseek
 ```
 
-或指定项目目录：
+Or specify a project directory:
 
 ```bash
 claude-deepseek ~/projects/my-project
 ```
 
-## 测试 DeepSeek 连接
+## Test DeepSeek Connection
 
-双击 `verify-deepseek.command`。看到返回内容里包含 `DeepSeek OK`，说明 API 连通。
+Double-click `verify-deepseek.command`. If the output contains `DeepSeek OK`, the API is connected.
 
-## 升级
+## Upgrade
 
-重新双击 `install.command` 即可。脚本会复用已有环境并更新 Claude Code。
+Double-click `install.command` again. It reuses the existing environment and updates Claude Code.
 
-## 删除
+## Uninstall
 
 ```bash
 conda env remove -n claude-code-deepseek
@@ -55,8 +57,8 @@ rm -f ~/.local/bin/claude-deepseek
 rm -rf ~/Desktop/"Claude Code DeepSeek.app"
 ```
 
-然后删除本文件夹即可。
+Then delete this folder.
 
 ---
 
-更多问题见 [主 README](../README.md)
+For more questions, see the [main README](../README.md)

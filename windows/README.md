@@ -1,64 +1,66 @@
+[中文](README.zh.md)
+
 # Claude Code + DeepSeek Windows
 
-Windows 员工双击安装 Claude Code，并接入 DeepSeek API。
+Double-click install of Claude Code with DeepSeek API for Windows colleagues.
 
-采用 Git for Windows 路线，普通同事不需要手动打开终端执行安装命令。
+Uses the Git for Windows route — regular colleagues don't need to open a terminal.
 
-官方说明：https://docs.anthropic.com/zh-CN/docs/claude-code/setup
+Official docs: https://docs.anthropic.com/zh-CN/docs/claude-code/setup
 
-## 安装
+## Install
 
-1. 下载并解压这个文件夹。
-2. 双击 `setup.bat`。
-3. 按提示输入 DeepSeek API Key。
-4. 安装完成后，双击桌面的 `Claude Code DeepSeek`。
-5. 在弹出的窗口里选择要操作的项目文件夹。
+1. Download and unzip this folder.
+2. Double-click `setup.bat`.
+3. Enter your DeepSeek API Key when prompted.
+4. After installation, double-click `Claude Code DeepSeek` on the desktop.
+5. In the pop-up window, select your project folder.
 
-## 脚本会做什么
+## What the Script Does
 
-- 检查并安装 Git for Windows。
-- 检查并安装 Node.js LTS。
-- 通过 npm 安装/更新 Claude Code。
-- 创建 `.env` 保存 DeepSeek 配置。
-- 创建 `claude-deepseek` 命令。
-- 创建桌面快捷方式 `Claude Code DeepSeek`。
+- Checks for and installs Git for Windows.
+- Checks for and installs Node.js LTS.
+- Installs/updates Claude Code via npm.
+- Creates `.env` to store DeepSeek configuration.
+- Creates the `claude-deepseek` command.
+- Creates the desktop shortcut `Claude Code DeepSeek`.
 
-## 每次使用
+## Daily Use
 
-双击桌面 `Claude Code DeepSeek`，选择项目文件夹。
+Double-click `Claude Code DeepSeek` on the desktop and select your project folder.
 
-如果会用终端，也可以进入项目目录后运行：
+Terminal users can also:
 
 ```powershell
 claude-deepseek
 ```
 
-或指定项目目录：
+Or specify a project directory:
 
 ```powershell
 claude-deepseek C:\Users\me\projects\my-project
 ```
 
-## 测试 DeepSeek 连接
+## Test DeepSeek Connection
 
-右键 `verify-deepseek.ps1`，选择"使用 PowerShell 运行"。
+Right-click `verify-deepseek.ps1` and select "Run with PowerShell".
 
-也可以在 PowerShell 里运行：
+Or in PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\verify-deepseek.ps1
 ```
 
-## 升级
+## Upgrade
 
-重新双击 `setup.bat` 即可。
+Double-click `setup.bat` again.
 
-## 删除
+## Uninstall
 
-- 删除 `%USERPROFILE%\bin\claude-deepseek.cmd`
-- 删除桌面 `Claude Code DeepSeek`
-- 删除本项目文件夹
+- Delete `%USERPROFILE%\bin\claude-deepseek.cmd`
+- Delete `Claude Code DeepSeek` from the desktop
+- Delete the project folder
 
 ---
 
-更多问题见 [主 README](../README.md)
+For more questions, see the [main README](../README.md)
