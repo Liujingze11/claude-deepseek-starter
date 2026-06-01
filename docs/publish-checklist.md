@@ -2,33 +2,24 @@
 
 ## 必做
 
-- 确认仓库名是 `claude-deepseek-starter`。
-- 确认远程地址是 `https://github.com/Liujingze11/claude-deepseek-starter.git`。
-- 确认没有真实 API Key。
+- 确认没有真实 API Key 提交。
 - 确认三个平台目录都包含 `.env.example`。
 - 确认 macOS/Linux 脚本有可执行权限。
+- 确认 `icons/` 目录包含完整的平台图标（`.ico`, `.icns`, `.png`, `.svg`）。
+- 确认中英文 README 内容同步（`README.md` + `README.zh.md`，各平台同理）。
+- 确认所有相对链接有效（README 之间的语言链接、主 README 到子 README 的链接）。
 
 ## 本地检查命令
 
 ```bash
 git status --short
 rg "sk-" .
-find macos linux -type f \( -name "*.sh" -o -name "*.command" \) -print
-```
-
-## 推荐提交信息
-
-```text
-Initial cross-platform Claude Code DeepSeek starter
+find . -type f \( -name "*.sh" -o -name "*.command" \) -print
+ls icons/launcher.svg icons/installer.svg icons/launcher.ico icons/installer.ico icons/launcher.icns icons/installer.icns icons/launcher.png icons/installer.png
 ```
 
 ## 推送
 
 ```bash
-git init
-git branch -M main
-git remote add origin https://github.com/Liujingze11/claude-deepseek-starter.git
-git add .
-git commit -m "Initial cross-platform Claude Code DeepSeek starter"
-git push -u origin main
+git push origin main
 ```
