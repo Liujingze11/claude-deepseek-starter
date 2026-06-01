@@ -111,6 +111,30 @@ install_launcher() {
       log "提示：$bin_dir 暂不在 PATH。可运行：echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
       ;;
   esac
+
+  # Create desktop entry (icon is optional — missing file falls back to system default)
+  local apps_dir="$HOME/.local/share/applications"
+  mkdir -p "$apps_dir"
+  local desktop_file="$apps_dir/claude-deepseek.desktop"
+  local icon_path="$PROJECT_DIR/icons/launcher.png"
+
+  cat > "$desktop_file" <<DESKTOP
+[Desktop Entry]
+Name=Claude Code DeepSeek
+Comment=AI-powered coding assistant with Claude Code + DeepSeek
+Exec=$launcher
+Icon=$icon_path
+Terminal=true
+Type=Application
+Categories=Development;
+StartupNotify=true
+DESKTOP
+
+  chmod +x "$desktop_file"
+  log "已创建桌面启动器: $desktop_file"
+  if [ ! -f "$icon_path" ]; then
+    log "提示：图标文件不存在 ($icon_path)，桌面将使用默认图标"
+  fi
 }
 
 set_env_value() {
