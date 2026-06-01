@@ -300,6 +300,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$runner" %*
   $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runner`""
   $shortcut.WorkingDirectory = $env:USERPROFILE
   $shortcut.WindowStyle = 1
+  $icoPath = Join-Path $InstallDir "icons\launcher.ico"
+  if (Test-Path $icoPath) {
+    $shortcut.IconLocation = $icoPath
+  }
   $shortcut.Save()
   Write-Step "已创建桌面快捷方式: $desktopShortcut"
 }
