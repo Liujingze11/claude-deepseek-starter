@@ -1,6 +1,6 @@
-[English](README.md) · 中文
-
 # Claude Code + DeepSeek macOS
+
+[English](README.md) · 中文
 
 给公司 Mac 员工使用的一键安装包：双击安装 Claude Code，并接入 DeepSeek API。
 

@@ -1,8 +1,8 @@
+# Claude Code + DeepSeek Starter
+
 English · [中文](README.zh.md)
 
 🌏 Don't see your language? Open a PR to add one — all welcome.
-
-# Claude Code + DeepSeek Starter
 
 A cross-platform one-click deployment pack for regular users: quickly install Claude Code and forward its requests to the DeepSeek API.
 

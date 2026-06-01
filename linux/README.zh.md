@@ -1,6 +1,6 @@
-[English](README.md) · 中文
-
 # Claude Code + DeepSeek Ubuntu
+
+[English](README.md) · 中文
 
 Ubuntu/Linux 一键安装 Claude Code，并接入 DeepSeek API。
 

@@ -1,8 +1,8 @@
+# Claude Code + DeepSeek Starter
+
 [English](README.md) · 中文
 
 🌏 没有你的语言？欢迎提交 PR 添加。
-
-# Claude Code + DeepSeek Starter
 
 一个面向普通用户的跨平台部署包：快速安装 Claude Code，并把 Claude Code 请求转发到 DeepSeek API。
 
