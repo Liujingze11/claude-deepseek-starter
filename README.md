@@ -62,6 +62,8 @@ cd /path/to/your/project
 claude-deepseek
 ```
 
+详见 [macos/README.md](macos/README.md)
+
 ## Windows 安装
 
 1. 打开 `windows` 文件夹。
@@ -74,6 +76,8 @@ PowerShell 用户也可以这样启动：
 ```powershell
 claude-deepseek C:\Users\me\projects\my-project
 ```
+
+详见 [windows/README.md](windows/README.md)
 
 ## Linux/Ubuntu 安装
 
@@ -89,6 +93,8 @@ chmod +x install.sh run-claude.sh verify-deepseek.sh
 cd ~/projects/my-project
 claude-deepseek
 ```
+
+详见 [linux/README.md](linux/README.md)
 
 ## 验证 DeepSeek 连接
 
