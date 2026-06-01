@@ -1,6 +1,6 @@
 # Claude Code + DeepSeek macOS
 
-English · [中文](README.zh.md)
+English · [中文版](README.zh.md)
 
 A one-click install pack for Mac colleagues: double-click to install Claude Code with DeepSeek API.
 

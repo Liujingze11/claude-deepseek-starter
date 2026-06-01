@@ -1,6 +1,6 @@
 # Claude Code + DeepSeek Windows
 
-English · [中文](README.zh.md)
+English · [中文版](README.zh.md)
 
 Double-click install of Claude Code with DeepSeek API for Windows colleagues.
 

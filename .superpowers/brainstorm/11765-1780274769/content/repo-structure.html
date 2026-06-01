@@ -1,0 +1,46 @@
+<h2>文件布局 &amp; 格式规格</h2>
+
+<div class="section">
+<h3>仓库目录</h3>
+<pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;font-size:13px;overflow-x:auto">claude-deepseek-starter/
+├── icons/                        <span style="color:#64748b"># 新增：所有图标源文件和成品</span>
+│   ├── launcher.svg              <span style="color:#64748b"># SVG 源文件 - 启动器</span>
+│   ├── installer.svg             <span style="color:#64748b"># SVG 源文件 - 安装器</span>
+│   ├── launcher.ico              <span style="color:#64748b"># Windows: 16+32+48+256px</span>
+│   ├── installer.ico             <span style="color:#64748b"># Windows</span>
+│   ├── launcher.icns             <span style="color:#64748b"># macOS: 16→512px 多尺寸</span>
+│   ├── launcher.png              <span style="color:#64748b"># Linux: 128px PNG</span>
+│   └── installer.png             <span style="color:#64748b"># Linux</span>
+├── linux/
+│   ├── install.sh                <span style="color:#64748b"># 修改：创建 .desktop + 图标复制</span>
+│   └── ...
+├── macos/
+│   ├── install.command           <span style="color:#64748b"># 修改：创建 .app bundle + 图标复制</span>
+│   └── ...
+└── windows/
+    ├── install.ps1               <span style="color:#64748b"># 修改：.lnk 加 IconLocation</span>
+    └── ...</pre>
+</div>
+
+<div class="section">
+<h3>各格式规格</h3>
+<table style="width:100%;border-collapse:collapse;font-size:14px">
+  <tr style="background:#1e293b"><th style="padding:8px;text-align:left">平台</th><th style="padding:8px;text-align:left">格式</th><th style="padding:8px;text-align:left">包含尺寸</th><th style="padding:8px;text-align:left">文件大小</th></tr>
+  <tr style="border-bottom:1px solid #334155"><td style="padding:8px">Windows</td><td style="padding:8px">.ico</td><td style="padding:8px">16, 32, 48, 256 px</td><td style="padding:8px">~30KB</td></tr>
+  <tr style="border-bottom:1px solid #334155"><td style="padding:8px">macOS</td><td style="padding:8px">.icns</td><td style="padding:8px">16, 32, 64, 128, 256, 512, 1024 px</td><td style="padding:8px">~50KB</td></tr>
+  <tr><td style="padding:8px">Linux</td><td style="padding:8px">.png</td><td style="padding:8px">128px</td><td style="padding:8px">~5KB</td></tr>
+</table>
+<p style="margin-top:12px;color:#94a3b8;font-size:13px">所有二进制文件合计 ~120KB，对仓库体积基本没影响</p>
+</div>
+
+<div class="section">
+<h3>Windows 额外说明</h3>
+<p>Windows 目前用 WScript.Shell 创建的 .lnk 已经保存在桌面，只需加一行 <code>IconLocation</code>。setup.bat（双击入口）本身无法自定义图标，但双击后创建的桌面快捷方式可以。</p>
+<p style="color:#94a3b8;font-size:13px">也考虑给 setup.bat 做个包装 .lnk 放到下载包里，用户一开始就看到图标。</p>
+</div>
+
+<div class="section">
+<h3>macOS 额外说明</h3>
+<p>目前桌面放的是 <code>.command</code> 纯文本，macOS 不给他图标。改为 <code>.app</code> bundle 后获得完整图标支持。.app 包内只放一个脚本 + 一个 icns，不需要 Xcode。<br>
+<strong>破坏性评估：</strong>.command 换成 .app 后，双击行为不变（打开Terminal选文件夹），需要删掉旧的 .command 避免桌面上出现两个。</p>
+</div>

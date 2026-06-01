@@ -1,0 +1,47 @@
+<h2>各平台集成方案 — 失败不影响功能</h2>
+<p class="subtitle">核心原则：图标路径不存在或设置失败时，脚本静默跳过，绝不出错退出</p>
+
+<div class="section">
+<h3>Windows（最完善）</h3>
+<p class="subtitle">.lnk 原生支持图标，install.ps1 中已用 WScript.Shell 创建快捷方式</p>
+<pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;font-size:13px;overflow-x:auto">$shortcut = $shell.CreateShortcut($desktopShortcut)
+$shortcut.IconLocation = "$InstallDir\icons\launcher.ico"
+# 如果 icons\launcher.ico 不存在，WScript 自动用默认图标，不会报错
+$shortcut.Save()</pre>
+<p style="margin-top:8px;color:#94a3b8;font-size:13px">✅ .ico 不存在的自然行为就是回退到系统默认图标</p>
+</div>
+
+<div class="section">
+<h3>macOS</h3>
+<p class="subtitle">.command 文件不支持自定义图标。改用 .app bundle 包装。bundle 里放 .icns，没有也行</p>
+<pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;font-size:13px;overflow-x:auto"># 在桌面上创建 .app bundle 目录
+mkdir -p "Claude Code DeepSeek.app/Contents/MacOS"
+mkdir -p "Claude Code DeepSeek.app/Contents/Resources"
+# 放脚本
+cp run-wrapper.sh "Claude Code DeepSeek.app/Contents/MacOS/"
+# 如果有 icns 就放，没有就跳过 —— 不影响启动
+cp launcher.icns "Claude Code DeepSeek.app/Contents/Resources/" 2>/dev/null || true</pre>
+<p style="margin-top:8px;color:#94a3b8;font-size:13px">✅ .app 没 .icns 时 macOS 显示默认文档图标，功能完全正常</p>
+</div>
+
+<div class="section">
+<h3>Linux</h3>
+<p class="subtitle">创建 .desktop 文件，Icon= 指向 PNG，文件不存在就回退默认</p>
+<pre style="background:#1e293b;color:#e2e8f0;padding:16px;border-radius:8px;font-size:13px;overflow-x:auto">[Desktop Entry]
+Name=Claude Code DeepSeek
+Exec=/home/user/.local/bin/claude-deepseek
+Icon=/path/to/icons/launcher.png
+Terminal=true
+Type=Application</pre>
+<p style="margin-top:8px;color:#94a3b8;font-size:13px">✅ Icon 路径指向不存在的文件时，桌面环境自动用 fallback 图标</p>
+</div>
+
+<div class="section">
+<h3>统一的安全策略</h3>
+<ul>
+  <li>所有脚本中，图标操作都用 <code>|| true</code> (bash) / <code>-ErrorAction SilentlyContinue</code> (ps1) 包裹</li>
+  <li>安装脚本在图标复制前不检查图标文件是否存在 — 有就复，没有就跳过</li>
+  <li>启动脚本完全不碰图标逻辑 — 图标只影响桌面快捷方式的视觉效果</li>
+  <li>如果整个 icons/ 目录被用户删除，恢复到"无图标"状态，和改动前一模一样</li>
+</ul>
+</div>
