@@ -2,7 +2,7 @@
 
 [English](README.md) · 中文版
 
-给公司 Mac 员工使用的一键安装包：双击安装 Claude Code，并接入 DeepSeek API。
+给公司 Mac 用户使用的一键安装包：双击安装 Claude Code，并接入 DeepSeek API。
 
 采用 Miniforge + conda 隔离环境，不要求提前安装 Homebrew、Node.js 或 npm。
 

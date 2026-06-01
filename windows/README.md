@@ -2,9 +2,9 @@
 
 English · [中文版](README.zh.md)
 
-Double-click install of Claude Code with DeepSeek API for Windows colleagues.
+Double-click install of Claude Code with DeepSeek API for Windows users.
 
-Uses the Git for Windows route — regular colleagues don't need to open a terminal.
+Uses the Git for Windows route — regular users don't need to open a terminal.
 
 Official docs: https://docs.anthropic.com/zh-CN/docs/claude-code/setup
 

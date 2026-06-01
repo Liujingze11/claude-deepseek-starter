@@ -2,7 +2,7 @@
 
 English · [中文版](README.zh.md)
 
-A one-click install pack for Mac colleagues: double-click to install Claude Code with DeepSeek API.
+A one-click install pack for Mac users: double-click to install Claude Code with DeepSeek API.
 
 Uses Miniforge + conda isolated environment. No need for Homebrew, Node.js, or npm to be pre-installed.
 

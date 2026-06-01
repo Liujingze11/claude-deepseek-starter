@@ -2,9 +2,9 @@
 
 [English](README.md) · 中文版
 
-Windows 员工双击安装 Claude Code，并接入 DeepSeek API。
+Windows 用户双击安装 Claude Code，并接入 DeepSeek API。
 
-采用 Git for Windows 路线，普通同事不需要手动打开终端执行安装命令。
+采用 Git for Windows 路线，普通用户不需要手动打开终端执行安装命令。
 
 官方说明：https://docs.anthropic.com/zh-CN/docs/claude-code/setup
 

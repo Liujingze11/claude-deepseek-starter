@@ -34,8 +34,8 @@ Then pick your platform:
 
 | System | Recommended Entry | Best For |
 | --- | --- | --- |
-| macOS | `macos/install.command` | Colleagues who don't want to manually install Homebrew, Node, or npm |
-| Windows | `windows/setup.bat` | Colleagues who want double-click install and desktop launch |
+| macOS | `macos/install.command` | Users who don't want to manually install Homebrew, Node, or npm |
+| Windows | `windows/setup.bat` | Users who want double-click install and desktop launch |
 | Linux/Ubuntu | `linux/install.sh` | Terminal users, servers, WSL users |
 
 During installation you will be prompted for your DeepSeek API Key. The input will not be displayed on screen — this is normal. The key is only written to your local `.env` file.
