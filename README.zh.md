@@ -1,4 +1,6 @@
-[English](README.md)
+[English](README.md) · 中文
+
+🌏 没有你的语言？欢迎提交 PR 添加。
 
 # Claude Code + DeepSeek Starter
 
