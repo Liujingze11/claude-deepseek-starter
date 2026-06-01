@@ -1,3 +1,5 @@
+<img src="icons/banner.svg" alt="Claude Code + DeepSeek Starter" width="100%">
+
 # Claude Code + DeepSeek Starter
 
 [English](README.md) · 中文版

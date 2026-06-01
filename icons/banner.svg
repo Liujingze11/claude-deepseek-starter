@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e293b"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="320" fill="url(#bg)"/>
+
+  <!-- Left: Typography -->
+  <text x="80" y="140" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="76" fill="#4fc3f7" letter-spacing="6">CLAUDE CODE</text>
+  <line x1="80" y1="175" x2="660" y2="175" stroke="#334155" stroke-width="5" stroke-linecap="round"/>
+  <text x="80" y="250" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="52" fill="#94a3b8" letter-spacing="4">DEEPSEEK STARTER</text>
+
+  <!-- Right: App icon -->
+  <rect x="920" y="40" width="240" height="240" rx="48" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+  <rect x="940" y="60" width="200" height="200" rx="40" fill="url(#bg)"/>
+  <text x="1040" y="128" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="34" fill="#4fc3f7">CLAUDE</text>
+  <line x1="960" y1="142" x2="1120" y2="142" stroke="#334155" stroke-width="2.5"/>
+  <text x="1040" y="192" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="24" fill="#94a3b8">DEEPSEEK</text>
+
+  <!-- Subtle decorative dots -->
+  <circle cx="860" cy="160" r="2" fill="#334155"/>
+  <circle cx="878" cy="140" r="1.5" fill="#334155"/>
+  <circle cx="878" cy="180" r="1.5" fill="#334155"/>
+</svg>
