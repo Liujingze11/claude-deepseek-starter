@@ -158,6 +158,26 @@ CLAUDE_CODE_EFFORT_LEVEL=max
 ```
 
 
+## Claude Code 版本兼容说明
+
+Claude Code 由 Anthropic 频繁更新，部分新版会引入变更导致 DeepSeek 的 Anthropic 兼容接口暂时不可用。遇到这种情况时，**降级到上一个可用的 Claude Code 版本**即可恢复使用。
+
+macOS / Linux：
+
+```bash
+conda activate claude-code-deepseek
+npm install -g @anthropic-ai/claude-code@已知可用版本号
+```
+
+Windows（PowerShell）：
+
+```powershell
+npm install -g @anthropic-ai/claude-code@已知可用版本号
+```
+
+降级后功能恢复正常。待 DeepSeek 完成兼容适配、确认新版可用后，再运行对应平台安装脚本升级回最新版即可。本仓库 README 会尽量跟进当前推荐的可用版本号。
+
+
 ## 常见问题
 
 ### 1. 输入 API Key 时为什么看不到字符？
