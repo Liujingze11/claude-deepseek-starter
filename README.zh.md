@@ -358,3 +358,35 @@ Windows：
 - 删除本项目文件夹
 
 如果你只是不想继续使用 DeepSeek，删除对应目录下的 `.env` 即可。
+
+### 15. `claude: command not found` — 上一秒还能用，突然就找不到了
+
+这是 Claude Code 自动更新机制的一个已知 bug。Claude Code 会在后台通过 npm 尝试自动更新自身。npm 更新全局包时，先把旧目录重命名为隐藏临时目录（如 `.claude-code-pLnB7FQW`），再替换为新版本。如果这个重命名步骤因残留文件、临时目录冲突或更新过程中断而失败，磁盘上的 `claude` 二进制文件就会消失。已经运行的进程还能继续工作（代码已加载到内存），但下次启动就会报错。
+
+**典型症状：**
+
+- `exec: claude: 未找到`
+- 手动运行 `npm install -g @anthropic-ai/claude-code` 时报错：`ENOTEMPTY: directory not empty, rename .../.claude-code-XXXXXX`
+
+**解决方法：**
+
+```bash
+# 1. 找到更新失败残留的临时目录
+ls -d "$(npm root -g)"/.claude-code-* 2>/dev/null
+
+# 2. 删除这些残留目录
+rm -rf "$(npm root -g)"/.claude-code-*
+
+# 3. 重新安装 Claude Code
+npm install -g @anthropic-ai/claude-code
+```
+
+如果你用的是本项目创建的 conda 环境：
+
+```bash
+conda activate claude-code-deepseek
+rm -rf "$(npm root -g)"/.claude-code-*
+npm install -g @anthropic-ai/claude-code
+```
+
+这个问题已有其他 Claude Code 用户报告过——属于 npm 全局包更新机制的通用问题，不是本项目或 DeepSeek 特有的。

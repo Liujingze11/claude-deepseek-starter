@@ -355,3 +355,35 @@ Windows:
 - Delete the project folder
 
 If you just want to stop using DeepSeek, delete the `.env` file in the platform directory.
+
+### 15. `claude: command not found` — was working a second ago
+
+This is a known Claude Code auto-update bug. Claude Code tries to update itself via npm in the background. npm renames the old package directory to a hidden temp name (e.g. `.claude-code-pLnB7FQW`) before replacing it — if this rename step fails due to leftover files or an interrupted update, the `claude` binary disappears from disk. The currently running process stays alive (code is already in memory), but the next launch fails.
+
+**Symptoms:**
+
+- `exec: claude: not found`
+- `npm install -g @anthropic-ai/claude-code` fails with: `ENOTEMPTY: directory not empty, rename .../.claude-code-XXXXXX`
+
+**Fix:**
+
+```bash
+# 1. Find corrupted temp directories left by the failed update
+ls -d "$(npm root -g)"/.claude-code-* 2>/dev/null
+
+# 2. Remove them
+rm -rf "$(npm root -g)"/.claude-code-*
+
+# 3. Reinstall Claude Code
+npm install -g @anthropic-ai/claude-code
+```
+
+If you use the conda environment from this project:
+
+```bash
+conda activate claude-code-deepseek
+rm -rf "$(npm root -g)"/.claude-code-*
+npm install -g @anthropic-ai/claude-code
+```
+
+This issue has been reported by other Claude Code users — it's a problem with npm's global package update mechanism, not specific to this project or DeepSeek.
