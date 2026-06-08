@@ -18,9 +18,9 @@ Windows 用户双击安装 Claude Code，并接入 DeepSeek API。
 
 ## 安装过程中会看到什么
 
-安装器会显示步骤编号，并在耗时较长的步骤中每 30 秒输出一次提示。首次安装可能需要几分钟，因为可能需要安装 Git for Windows、Node.js、npm 软件包和 Claude Code。
+安装器会显示步骤编号，并在耗时较长的步骤中输出提示。首次安装可能需要几分钟，因为可能需要安装 Git for Windows、Node.js、npm 软件包和 Claude Code。
 
-如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭窗口。
+Claude Code 安装步骤会使用 `--loglevel=info --progress=true` 运行 npm，并每 10 秒输出一次心跳提示。如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭窗口。
 
 ## 安装指定 Claude Code 版本
 

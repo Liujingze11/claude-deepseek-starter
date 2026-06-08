@@ -41,6 +41,8 @@ npm config set https-proxy http://代理地址:端口
 
 然后重新运行安装器。
 
+Claude Code 安装步骤会使用 `--loglevel=info --progress=true` 运行 npm，并每 10 秒输出一次心跳提示。如果 npm 没有显示百分比，只要心跳还在输出，就说明安装仍在运行。
+
 ## 安装已知可用的 Claude Code 版本
 
 macOS：

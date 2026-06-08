@@ -14,6 +14,7 @@ NPM_FETCH_RETRIES="${NPM_FETCH_RETRIES:-5}"
 NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
 NPM_FETCH_RETRY_MAXTIMEOUT_MS="${NPM_FETCH_RETRY_MAXTIMEOUT_MS:-120000}"
 HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-30}"
+NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS="${NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS:-10}"
 TOTAL_STEPS=7
 CURRENT_STEP=0
 
@@ -32,6 +33,12 @@ step() {
 }
 
 run_with_heartbeat() {
+  local interval="$HEARTBEAT_INTERVAL_SECONDS"
+  if [ "${1:-}" = "--interval" ]; then
+    interval="$2"
+    shift 2
+  fi
+
   local label="$1"
   shift
 
@@ -43,7 +50,7 @@ run_with_heartbeat() {
 
   (
     while kill -0 "$pid" 2>/dev/null; do
-      sleep "$HEARTBEAT_INTERVAL_SECONDS"
+      sleep "$interval"
       if kill -0 "$pid" 2>/dev/null; then
         elapsed="$(($(date +%s) - start))"
         log "仍在执行：$label。已用时：$(format_elapsed "$elapsed")。请不要关闭窗口。"
@@ -178,7 +185,8 @@ ensure_env() {
 install_claude_code() {
   log "安装/更新 Claude Code 到 conda 环境: $ENV_NAME"
   conda activate "$ENV_NAME"
-  run_with_heartbeat "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  log "正在通过 npm 下载/安装 Claude Code；网络慢时可能需要几分钟。"
+  run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g --loglevel=info --progress=true "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
   claude --version
 }
 
