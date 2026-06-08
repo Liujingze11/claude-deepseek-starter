@@ -17,6 +17,21 @@ chmod +x install.sh run-claude.sh verify-deepseek.sh
 
 You will be prompted for your DeepSeek API Key. Paste and press Enter.
 
+## During Installation
+
+The installer shows numbered setup steps and heartbeat messages during long-running work. First-time installation may take several minutes while Miniforge, conda packages, npm packages, and Claude Code are downloaded.
+
+If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the terminal open while those messages continue.
+
+## Install a Specific Claude Code Version
+
+To install a known working Claude Code version:
+
+```bash
+cd linux
+CLAUDE_CODE_VERSION=<known-working-version> ./install.sh
+```
+
 ## Daily Use
 
 Enter your project directory and run:

@@ -42,6 +42,29 @@ cd claude-deepseek-starter
 
 安装过程中会要求输入 DeepSeek API Key。输入时屏幕不显示是正常的，key 只会写入本机 `.env` 文件。
 
+## 安装过程中会看到什么
+
+首次安装可能需要几分钟，因为脚本可能会下载 Miniforge、conda 软件包、Git、Node.js、npm 软件包和 Claude Code。
+
+安装器会显示类似 `[3/7] 创建或复用 conda 环境` 的步骤编号。遇到耗时较长的步骤时，安装器每 30 秒会输出一次“仍在执行”的提示。只要还能看到这类提示，就说明安装器还在工作。
+
+安装窗口还在显示进度或“仍在执行”提示时，请不要关闭窗口。网络较慢、公司代理、npm 源延迟都可能让 Claude Code 安装步骤超过 5 分钟。
+
+## 网络慢和超时
+
+安装 Claude Code 前，脚本会自动给 npm 配置更长的下载超时和重试：
+
+```bash
+npm config set fetch-timeout 1200000
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+```
+
+这样可以减少常见的 5 分钟网络超时。如果仍然失败，先配置代理，再重新运行对应平台的安装脚本。
+
+详细排查步骤见 [docs/troubleshooting.zh.md](docs/troubleshooting.zh.md)。
+
 ## 不同系统版本怎么选
 
 | 场景 | 推荐版本 | 说明 |
@@ -153,7 +176,8 @@ CLAUDE_CODE_EFFORT_LEVEL=max
 ├── README.md
 ├── docs/
 │   ├── publish-checklist.md
-│   └── troubleshooting.md
+│   ├── troubleshooting.md
+│   └── troubleshooting.zh.md
 ├── linux/
 │   ├── install.sh
 │   ├── run-claude.sh
@@ -172,22 +196,38 @@ CLAUDE_CODE_EFFORT_LEVEL=max
 
 ## Claude Code 版本兼容说明
 
-Claude Code 由 Anthropic 频繁更新，部分新版会引入变更导致 DeepSeek 的 Anthropic 兼容接口暂时不可用。遇到这种情况时，**降级到上一个可用的 Claude Code 版本**即可恢复使用。
+Claude Code 由 Anthropic 频繁更新，部分新版可能会暂时影响 DeepSeek 的 Anthropic 兼容接口。
 
-macOS / Linux：
+默认情况下，本项目会安装最新版 Claude Code：
 
 ```bash
-conda activate claude-code-deepseek
-npm install -g @anthropic-ai/claude-code@已知可用版本号
+npm install -g @anthropic-ai/claude-code@latest
+```
+
+如果某个新版本临时不兼容，可以安装一个已知可用版本。
+
+macOS：
+
+```bash
+cd macos
+CLAUDE_CODE_VERSION=<已知可用版本号> ./install.command
+```
+
+Linux：
+
+```bash
+cd linux
+CLAUDE_CODE_VERSION=<已知可用版本号> ./install.sh
 ```
 
 Windows（PowerShell）：
 
 ```powershell
-npm install -g @anthropic-ai/claude-code@已知可用版本号
+cd windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVersion <已知可用版本号>
 ```
 
-降级后功能恢复正常。待 DeepSeek 完成兼容适配、确认新版可用后，再运行对应平台安装脚本升级回最新版即可。本仓库 README 会尽量跟进当前推荐的可用版本号。
+DeepSeek 模型名称在 `.env` 里配置。修改 `ANTHROPIC_MODEL` 是切换运行时使用的 DeepSeek 模型；修改 `CLAUDE_CODE_VERSION` 是切换本机安装的 Claude Code npm 包版本。
 
 
 ## 常见问题

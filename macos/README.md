@@ -15,6 +15,21 @@ Uses Miniforge + conda isolated environment. No need for Homebrew, Node.js, or n
 5. After installation, double-click `Claude Code DeepSeek` on the desktop.
 6. In the pop-up window, select your project folder.
 
+## During Installation
+
+The installer shows numbered setup steps and heartbeat messages during long-running work. First-time installation may take several minutes while Miniforge, conda packages, npm packages, and Claude Code are downloaded.
+
+If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the window open while those messages continue.
+
+## Install a Specific Claude Code Version
+
+To install a known working Claude Code version:
+
+```bash
+cd macos
+CLAUDE_CODE_VERSION=<known-working-version> ./install.command
+```
+
 ## What the Script Does
 
 - Detects whether your Mac is Apple Silicon or Intel.

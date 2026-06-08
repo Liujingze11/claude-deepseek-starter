@@ -1,0 +1,79 @@
+# 故障排查
+
+## 安装看起来卡住了
+
+如果安装器还在输出“仍在执行”的提示，说明它仍在运行。首次安装可能需要几分钟，因为依赖会从 GitHub、conda-forge、npm、winget 或其他软件源下载。
+
+只要窗口还在显示进度或心跳提示，请不要关闭窗口。
+
+## Miniforge 下载失败
+
+先检查当前网络是否能访问 GitHub。如果需要代理，请先配置代理：
+
+```bash
+export HTTPS_PROXY=http://代理地址:端口
+export HTTP_PROXY=http://代理地址:端口
+```
+
+然后重新运行安装器。
+
+## conda 环境创建失败
+
+这通常表示 conda-forge 无法访问，或者网络中断。等网络稳定后重新运行安装器。已有环境会尽量复用。
+
+## npm 安装超时
+
+安装器会自动给 npm 配置更长的超时和重试：
+
+```bash
+npm config set fetch-timeout 1200000
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+```
+
+如果 npm 仍然失败，请配置 npm 代理：
+
+```bash
+npm config set proxy http://代理地址:端口
+npm config set https-proxy http://代理地址:端口
+```
+
+然后重新运行安装器。
+
+## 安装已知可用的 Claude Code 版本
+
+macOS：
+
+```bash
+cd macos
+CLAUDE_CODE_VERSION=<已知可用版本号> ./install.command
+```
+
+Linux：
+
+```bash
+cd linux
+CLAUDE_CODE_VERSION=<已知可用版本号> ./install.sh
+```
+
+Windows：
+
+```powershell
+cd windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVersion <已知可用版本号>
+```
+
+## Windows winget 问题
+
+`winget` 来自 Microsoft Store 的“应用安装程序”。如果系统找不到 `winget`，请先从 Microsoft Store 更新或安装“应用安装程序”。如果公司禁用了 Microsoft Store，请让管理员手动安装 Git for Windows 和 Node.js LTS，然后重新运行 `windows/setup.bat`。
+
+## `claude: command not found`，之前明明能用
+
+Claude Code 的 npm 全局包更新中断后，可能留下临时目录并导致 `claude` 命令消失。可以删除残留目录后重装：
+
+```bash
+conda activate claude-code-deepseek
+rm -rf "$(npm root -g)"/.claude-code-*
+npm install -g @anthropic-ai/claude-code
+```

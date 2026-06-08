@@ -16,6 +16,21 @@ Official docs: https://docs.anthropic.com/zh-CN/docs/claude-code/setup
 4. After installation, double-click `Claude Code DeepSeek` on the desktop.
 5. In the pop-up window, select your project folder.
 
+## During Installation
+
+The installer shows numbered setup steps and heartbeat messages during long-running work. First-time installation may take several minutes while Git for Windows, Node.js, npm packages, and Claude Code are installed.
+
+If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the window open while those messages continue.
+
+## Install a Specific Claude Code Version
+
+To install a known working Claude Code version, run PowerShell manually:
+
+```powershell
+cd windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVersion <known-working-version>
+```
+
 ## What the Script Does
 
 - Checks for and installs Git for Windows.

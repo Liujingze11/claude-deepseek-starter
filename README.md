@@ -42,6 +42,29 @@ Then pick your platform:
 
 During installation you will be prompted for your DeepSeek API Key. The input will not be displayed on screen — this is normal. The key is only written to your local `.env` file.
 
+## During Installation
+
+First-time installation can take several minutes because the scripts may download Miniforge, conda packages, Git, Node.js, npm packages, and Claude Code.
+
+The installer prints numbered steps such as `[3/7] 加载 conda`. During long-running steps it also prints a heartbeat message every 30 seconds, such as `仍在执行：安装 Claude Code`. If you see heartbeat messages, the installer is still working.
+
+Do not close the install window while a step is still printing progress or heartbeat messages. Slow networks, corporate proxies, and npm registry latency can make the Claude Code install step take longer than five minutes.
+
+## Slow Networks and Timeouts
+
+The installer configures npm with a longer fetch timeout and retries before installing Claude Code:
+
+```bash
+npm config set fetch-timeout 1200000
+npm config set fetch-retries 5
+npm config set fetch-retry-mintimeout 20000
+npm config set fetch-retry-maxtimeout 120000
+```
+
+This is intended to avoid common five-minute network timeouts. If installation still fails, configure your proxy first, then re-run the same platform installer.
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for detailed recovery steps.
+
 ## Platform Selection Guide
 
 | Scenario | Recommended | Notes |
@@ -153,7 +176,8 @@ To switch keys or models, edit the `.env` file in the corresponding platform dir
 ├── README.md
 ├── docs/
 │   ├── publish-checklist.md
-│   └── troubleshooting.md
+│   ├── troubleshooting.md
+│   └── troubleshooting.zh.md
 ├── linux/
 │   ├── install.sh
 │   ├── run-claude.sh
@@ -171,22 +195,38 @@ To switch keys or models, edit the `.env` file in the corresponding platform dir
 
 ## Claude Code Version Compatibility
 
-Claude Code is frequently updated by Anthropic. New versions may introduce changes that temporarily break compatibility with DeepSeek's Anthropic-compatible API. If this happens, **downgrade to the last known working version** to restore functionality.
+Claude Code is frequently updated by Anthropic. New versions may introduce changes that temporarily break compatibility with DeepSeek's Anthropic-compatible API.
 
-macOS / Linux:
+By default this project installs the latest Claude Code version:
 
 ```bash
-conda activate claude-code-deepseek
-npm install -g @anthropic-ai/claude-code@<known-working-version>
+npm install -g @anthropic-ai/claude-code@latest
+```
+
+If a new Claude Code release breaks compatibility, install a known working version instead.
+
+macOS:
+
+```bash
+cd macos
+CLAUDE_CODE_VERSION=<known-working-version> ./install.command
+```
+
+Linux:
+
+```bash
+cd linux
+CLAUDE_CODE_VERSION=<known-working-version> ./install.sh
 ```
 
 Windows (PowerShell):
 
 ```powershell
-npm install -g @anthropic-ai/claude-code@<known-working-version>
+cd windows
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVersion <known-working-version>
 ```
 
-After downgrading, functionality will return to normal. Once DeepSeek completes compatibility work and confirms a new version works, re-run the platform install script to upgrade to the latest. This README will be updated with the currently recommended working version when available.
+DeepSeek model names are configured separately in `.env`. Changing `ANTHROPIC_MODEL` changes the DeepSeek model used at runtime; changing `CLAUDE_CODE_VERSION` changes the Claude Code npm package installed on your machine.
 
 ## FAQ
 
