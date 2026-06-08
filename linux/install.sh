@@ -5,9 +5,98 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="${ENV_NAME:-claude-code-deepseek}"
 CONDA_HOME="${CONDA_HOME:-$HOME/miniforge3}"
 MINIFORGE_VERSION="${MINIFORGE_VERSION:-latest}"
+CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-latest}"
+DOWNLOAD_MAX_TIME_SECONDS="${DOWNLOAD_MAX_TIME_SECONDS:-1800}"
+DOWNLOAD_RETRIES="${DOWNLOAD_RETRIES:-5}"
+DOWNLOAD_RETRY_DELAY_SECONDS="${DOWNLOAD_RETRY_DELAY_SECONDS:-3}"
+NPM_FETCH_TIMEOUT_MS="${NPM_FETCH_TIMEOUT_MS:-1200000}"
+NPM_FETCH_RETRIES="${NPM_FETCH_RETRIES:-5}"
+NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
+NPM_FETCH_RETRY_MAXTIMEOUT_MS="${NPM_FETCH_RETRY_MAXTIMEOUT_MS:-120000}"
+HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-30}"
+TOTAL_STEPS=7
+CURRENT_STEP=0
 
 log() {
   printf '\033[1;34m[setup]\033[0m %s\n' "$*"
+}
+
+format_elapsed() {
+  local total="$1"
+  printf '%02d:%02d' "$((total / 60))" "$((total % 60))"
+}
+
+step() {
+  CURRENT_STEP=$((CURRENT_STEP + 1))
+  log "[$CURRENT_STEP/$TOTAL_STEPS] $*"
+}
+
+run_with_heartbeat() {
+  local label="$1"
+  shift
+
+  local start pid heartbeat_pid status elapsed
+  start="$(date +%s)"
+
+  "$@" &
+  pid="$!"
+
+  (
+    while kill -0 "$pid" 2>/dev/null; do
+      sleep "$HEARTBEAT_INTERVAL_SECONDS"
+      if kill -0 "$pid" 2>/dev/null; then
+        elapsed="$(($(date +%s) - start))"
+        log "仍在执行：$label。已用时：$(format_elapsed "$elapsed")。请不要关闭窗口。"
+      fi
+    done
+  ) &
+  heartbeat_pid="$!"
+
+  set +e
+  wait "$pid"
+  status="$?"
+  kill "$heartbeat_pid" 2>/dev/null || true
+  wait "$heartbeat_pid" 2>/dev/null || true
+  set -e
+
+  return "$status"
+}
+
+curl_retry_all_errors_args() {
+  if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
+    printf '%s\n' '--retry-all-errors'
+  fi
+}
+
+download_file() {
+  local url="$1"
+  local output="$2"
+  local retry_all_errors
+  retry_all_errors="$(curl_retry_all_errors_args)"
+
+  if [ -n "$retry_all_errors" ]; then
+    curl -fL --progress-bar \
+      --connect-timeout 30 \
+      --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
+      --retry "$DOWNLOAD_RETRIES" \
+      --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
+      --retry-all-errors \
+      "$url" -o "$output"
+  else
+    curl -fL --progress-bar \
+      --connect-timeout 30 \
+      --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
+      --retry "$DOWNLOAD_RETRIES" \
+      --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
+      "$url" -o "$output"
+  fi
+}
+
+configure_npm_network() {
+  npm config set fetch-timeout "$NPM_FETCH_TIMEOUT_MS"
+  npm config set fetch-retries "$NPM_FETCH_RETRIES"
+  npm config set fetch-retry-mintimeout "$NPM_FETCH_RETRY_MINTIMEOUT_MS"
+  npm config set fetch-retry-maxtimeout "$NPM_FETCH_RETRY_MAXTIMEOUT_MS"
 }
 
 die() {
@@ -22,8 +111,8 @@ ensure_curl() {
 
   if command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
     log "未检测到 curl，尝试通过 apt-get 安装"
-    sudo apt-get update
-    sudo apt-get install -y curl
+    run_with_heartbeat "更新 apt 软件包索引" sudo apt-get update
+    run_with_heartbeat "安装 curl" sudo apt-get install -y curl
     return
   fi
 
@@ -60,8 +149,8 @@ ensure_conda() {
     url="https://github.com/conda-forge/miniforge/releases/download/$MINIFORGE_VERSION/$installer"
   fi
   tmp_file="$(mktemp "/tmp/$installer.XXXXXX")"
-  curl -fsSL "$url" -o "$tmp_file"
-  bash "$tmp_file" -b -p "$CONDA_HOME"
+  run_with_heartbeat "下载 Miniforge" download_file "$url" "$tmp_file"
+  run_with_heartbeat "安装 Miniforge 到 $CONDA_HOME" bash "$tmp_file" -b -p "$CONDA_HOME"
   rm -f "$tmp_file"
 }
 
@@ -82,14 +171,14 @@ ensure_env() {
     log "conda 环境已存在: $ENV_NAME"
   else
     log "创建 conda 环境: $ENV_NAME"
-    conda create -y -n "$ENV_NAME" -c conda-forge nodejs=22 git curl ca-certificates
+    run_with_heartbeat "创建 conda 环境 $ENV_NAME" conda create -y -n "$ENV_NAME" -c conda-forge nodejs=22 git curl ca-certificates
   fi
 }
 
 install_claude_code() {
   log "安装/更新 Claude Code 到 conda 环境: $ENV_NAME"
   conda activate "$ENV_NAME"
-  npm install -g @anthropic-ai/claude-code@latest
+  run_with_heartbeat "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
   claude --version
 }
 
@@ -186,13 +275,27 @@ write_env_file() {
 }
 
 main() {
+  step "检查 Linux 环境"
   [ "$(uname -s)" = "Linux" ] || die "此脚本面向 Linux/Ubuntu。当前系统: $(uname -s)"
   ensure_curl
 
+  step "检查或安装 Miniforge"
   ensure_conda
+
+  step "加载 conda"
   load_conda
+
+  step "创建或复用 conda 环境"
   ensure_env
+
+  step "配置 npm 网络超时和重试"
+  conda activate "$ENV_NAME"
+  configure_npm_network
+
+  step "安装 Claude Code 版本: $CLAUDE_CODE_VERSION"
   install_claude_code
+
+  step "写入配置并创建启动器"
   write_env_file
   install_launcher
 

@@ -1,9 +1,17 @@
 param(
   [string]$InstallDir = $PSScriptRoot,
-  [string]$LauncherName = "claude-deepseek"
+  [string]$LauncherName = "claude-deepseek",
+  [string]$ClaudeCodeVersion = $(if ($env:CLAUDE_CODE_VERSION) { $env:CLAUDE_CODE_VERSION } else { "latest" }),
+  [int]$NpmFetchTimeoutMs = $(if ($env:NPM_FETCH_TIMEOUT_MS) { [int]$env:NPM_FETCH_TIMEOUT_MS } else { 1200000 }),
+  [int]$NpmFetchRetries = $(if ($env:NPM_FETCH_RETRIES) { [int]$env:NPM_FETCH_RETRIES } else { 5 }),
+  [int]$NpmFetchRetryMinTimeoutMs = $(if ($env:NPM_FETCH_RETRY_MINTIMEOUT_MS) { [int]$env:NPM_FETCH_RETRY_MINTIMEOUT_MS } else { 20000 }),
+  [int]$NpmFetchRetryMaxTimeoutMs = $(if ($env:NPM_FETCH_RETRY_MAXTIMEOUT_MS) { [int]$env:NPM_FETCH_RETRY_MAXTIMEOUT_MS } else { 120000 }),
+  [int]$HeartbeatIntervalSeconds = $(if ($env:HEARTBEAT_INTERVAL_SECONDS) { [int]$env:HEARTBEAT_INTERVAL_SECONDS } else { 30 })
 )
 
 $ErrorActionPreference = "Stop"
+$TotalSteps = 7
+$CurrentStep = 0
 
 function Write-Step {
   param([string]$Message)
@@ -13,6 +21,64 @@ function Write-Step {
 function Write-Warn {
   param([string]$Message)
   Write-Host "[setup:warn] $Message" -ForegroundColor Yellow
+}
+
+function Write-SetupStep {
+  param([string]$Message)
+  $script:CurrentStep += 1
+  Write-Step "[$script:CurrentStep/$script:TotalSteps] $Message"
+}
+
+function Format-Elapsed {
+  param([TimeSpan]$Elapsed)
+  return "{0:00}:{1:00}" -f [Math]::Floor($Elapsed.TotalMinutes), $Elapsed.Seconds
+}
+
+function Invoke-WithHeartbeat {
+  param(
+    [string]$Label,
+    [string]$FilePath,
+    [string[]]$ArgumentList
+  )
+
+  $resolvedCommand = Get-Command $FilePath -ErrorAction SilentlyContinue
+  if ($resolvedCommand) {
+    $FilePath = $resolvedCommand.Source
+  }
+
+  $start = Get-Date
+  $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru
+
+  while (-not $process.HasExited) {
+    Start-Sleep -Seconds $HeartbeatIntervalSeconds
+    if (-not $process.HasExited) {
+      $elapsed = Format-Elapsed -Elapsed ((Get-Date) - $start)
+      Write-Step "仍在执行：$Label。已用时：$elapsed。请不要关闭窗口。"
+    }
+  }
+
+  if ($process.ExitCode -ne 0) {
+    Fail "$Label 失败，退出码：$($process.ExitCode)"
+  }
+}
+
+function Invoke-NpmConfig {
+  param(
+    [string]$Name,
+    [string]$Value
+  )
+
+  & npm config set $Name $Value
+  if ($LASTEXITCODE -ne 0) {
+    Fail "npm config set $Name 失败"
+  }
+}
+
+function Configure-NpmNetwork {
+  Invoke-NpmConfig -Name "fetch-timeout" -Value "$NpmFetchTimeoutMs"
+  Invoke-NpmConfig -Name "fetch-retries" -Value "$NpmFetchRetries"
+  Invoke-NpmConfig -Name "fetch-retry-mintimeout" -Value "$NpmFetchRetryMinTimeoutMs"
+  Invoke-NpmConfig -Name "fetch-retry-maxtimeout" -Value "$NpmFetchRetryMaxTimeoutMs"
 }
 
 function Fail {
@@ -74,7 +140,13 @@ function Ensure-Node {
 
   Ensure-Winget
   Write-Step "安装 Node.js LTS"
-  winget install --id OpenJS.NodeJS.LTS --exact --accept-source-agreements --accept-package-agreements
+  Invoke-WithHeartbeat -Label "安装 Node.js LTS" -FilePath "winget" -ArgumentList @(
+    "install",
+    "--id", "OpenJS.NodeJS.LTS",
+    "--exact",
+    "--accept-source-agreements",
+    "--accept-package-agreements"
+  )
   Refresh-Path
 
   $major = Get-NodeMajor
@@ -113,7 +185,13 @@ function Ensure-GitBash {
 
   Ensure-Winget
   Write-Step "安装 Git for Windows"
-  winget install --id Git.Git --exact --accept-source-agreements --accept-package-agreements
+  Invoke-WithHeartbeat -Label "安装 Git for Windows" -FilePath "winget" -ArgumentList @(
+    "install",
+    "--id", "Git.Git",
+    "--exact",
+    "--accept-source-agreements",
+    "--accept-package-agreements"
+  )
   Refresh-Path
 
   $bashPath = Find-GitBash
@@ -125,8 +203,12 @@ function Ensure-GitBash {
 }
 
 function Install-ClaudeCode {
-  Write-Step "安装/更新 Claude Code"
-  npm install -g "@anthropic-ai/claude-code@latest"
+  Write-Step "安装/更新 Claude Code，版本：$ClaudeCodeVersion"
+  Invoke-WithHeartbeat -Label "安装 Claude Code $ClaudeCodeVersion" -FilePath "npm" -ArgumentList @(
+    "install",
+    "-g",
+    "@anthropic-ai/claude-code@$ClaudeCodeVersion"
+  )
   Ensure-NpmGlobalPath
 
   if (-not (Test-Command "claude")) {
@@ -308,14 +390,27 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$runner" %*
   Write-Step "已创建桌面快捷方式: $desktopShortcut"
 }
 
+Write-SetupStep "检查 Windows 环境"
 Ensure-Windows
 $InstallDir = (Resolve-Path -LiteralPath $InstallDir).Path
 Set-Location $InstallDir
 
+Write-SetupStep "检查或安装 Git for Windows"
 $gitBashPath = Ensure-GitBash
+
+Write-SetupStep "检查或安装 Node.js LTS"
 Ensure-Node
+
+Write-SetupStep "配置 npm 网络超时和重试"
+Configure-NpmNetwork
+
+Write-SetupStep "安装 Claude Code 版本: $ClaudeCodeVersion"
 Install-ClaudeCode
+
+Write-SetupStep "写入 DeepSeek 配置"
 Ensure-Env -GitBashPath $gitBashPath
+
+Write-SetupStep "创建命令和桌面快捷方式"
 Install-Launcher
 
 Write-Host ""
