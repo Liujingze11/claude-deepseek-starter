@@ -19,9 +19,9 @@ chmod +x install.sh run-claude.sh verify-deepseek.sh
 
 ## 安装过程中会看到什么
 
-安装器会显示步骤编号，并在耗时较长的步骤中每 30 秒输出一次提示。首次安装可能需要几分钟，因为需要下载 Miniforge、conda 软件包、npm 软件包和 Claude Code。
+安装器会显示步骤编号，并在耗时较长的步骤中输出提示。首次安装可能需要几分钟，因为需要下载 Miniforge、conda 软件包、npm 软件包和 Claude Code。
 
-如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭终端。
+Claude Code 安装步骤会使用 `--loglevel=info --progress=true` 运行 npm，并每 10 秒输出一次心跳提示。如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭终端。
 
 ## 安装指定 Claude Code 版本
 

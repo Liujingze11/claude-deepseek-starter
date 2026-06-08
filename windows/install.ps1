@@ -6,7 +6,8 @@ param(
   [int]$NpmFetchRetries = $(if ($env:NPM_FETCH_RETRIES) { [int]$env:NPM_FETCH_RETRIES } else { 5 }),
   [int]$NpmFetchRetryMinTimeoutMs = $(if ($env:NPM_FETCH_RETRY_MINTIMEOUT_MS) { [int]$env:NPM_FETCH_RETRY_MINTIMEOUT_MS } else { 20000 }),
   [int]$NpmFetchRetryMaxTimeoutMs = $(if ($env:NPM_FETCH_RETRY_MAXTIMEOUT_MS) { [int]$env:NPM_FETCH_RETRY_MAXTIMEOUT_MS } else { 120000 }),
-  [int]$HeartbeatIntervalSeconds = $(if ($env:HEARTBEAT_INTERVAL_SECONDS) { [int]$env:HEARTBEAT_INTERVAL_SECONDS } else { 30 })
+  [int]$HeartbeatIntervalSeconds = $(if ($env:HEARTBEAT_INTERVAL_SECONDS) { [int]$env:HEARTBEAT_INTERVAL_SECONDS } else { 30 }),
+  [int]$NpmInstallHeartbeatIntervalSeconds = $(if ($env:NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS) { [int]$env:NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS } else { 10 })
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,7 +39,8 @@ function Invoke-WithHeartbeat {
   param(
     [string]$Label,
     [string]$FilePath,
-    [string[]]$ArgumentList
+    [string[]]$ArgumentList,
+    [int]$IntervalSeconds = $HeartbeatIntervalSeconds
   )
 
   $resolvedCommand = Get-Command $FilePath -ErrorAction SilentlyContinue
@@ -50,7 +52,7 @@ function Invoke-WithHeartbeat {
   $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -NoNewWindow -PassThru
 
   while (-not $process.HasExited) {
-    Start-Sleep -Seconds $HeartbeatIntervalSeconds
+    Start-Sleep -Seconds $IntervalSeconds
     if (-not $process.HasExited) {
       $elapsed = Format-Elapsed -Elapsed ((Get-Date) - $start)
       Write-Step "仍在执行：$Label。已用时：$elapsed。请不要关闭窗口。"
@@ -204,11 +206,14 @@ function Ensure-GitBash {
 
 function Install-ClaudeCode {
   Write-Step "安装/更新 Claude Code，版本：$ClaudeCodeVersion"
+  Write-Step "正在通过 npm 下载/安装 Claude Code；网络慢时可能需要几分钟。"
   Invoke-WithHeartbeat -Label "安装 Claude Code $ClaudeCodeVersion" -FilePath "npm" -ArgumentList @(
     "install",
     "-g",
+    "--loglevel=info",
+    "--progress=true",
     "@anthropic-ai/claude-code@$ClaudeCodeVersion"
-  )
+  ) -IntervalSeconds $NpmInstallHeartbeatIntervalSeconds
   Ensure-NpmGlobalPath
 
   if (-not (Test-Command "claude")) {

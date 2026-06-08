@@ -21,7 +21,7 @@ You will be prompted for your DeepSeek API Key. Paste and press Enter.
 
 The installer shows numbered setup steps and heartbeat messages during long-running work. First-time installation may take several minutes while Miniforge, conda packages, npm packages, and Claude Code are downloaded.
 
-If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the terminal open while those messages continue.
+During the Claude Code step, npm runs with `--loglevel=info --progress=true`, and the installer prints a heartbeat every 10 seconds. If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the terminal open while those messages continue.
 
 ## Install a Specific Claude Code Version
 

@@ -46,7 +46,7 @@ During installation you will be prompted for your DeepSeek API Key. The input wi
 
 First-time installation can take several minutes because the scripts may download Miniforge, conda packages, Git, Node.js, npm packages, and Claude Code.
 
-The installer prints numbered steps such as `[3/7] 加载 conda`. During long-running steps it also prints a heartbeat message every 30 seconds, such as `仍在执行：安装 Claude Code`. If you see heartbeat messages, the installer is still working.
+The installer prints numbered steps such as `[3/7] 加载 conda`. During long-running steps it also prints heartbeat messages. The Claude Code install step enables npm `info` / progress output and prints a heartbeat every 10 seconds, so you should keep seeing activity while npm downloads or installs packages.
 
 Do not close the install window while a step is still printing progress or heartbeat messages. Slow networks, corporate proxies, and npm registry latency can make the Claude Code install step take longer than five minutes.
 

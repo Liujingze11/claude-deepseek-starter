@@ -41,6 +41,8 @@ npm config set https-proxy http://proxy-host:proxy-port
 
 Then re-run the installer.
 
+During the Claude Code install step, npm runs with `--loglevel=info --progress=true`, and the installer prints a heartbeat every 10 seconds. If npm does not show a percentage, the heartbeat still means the install is running.
+
 ## Install a Known Working Claude Code Version
 
 macOS:
