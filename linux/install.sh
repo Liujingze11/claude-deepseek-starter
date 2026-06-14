@@ -15,11 +15,16 @@ NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
 NPM_FETCH_RETRY_MAXTIMEOUT_MS="${NPM_FETCH_RETRY_MAXTIMEOUT_MS:-120000}"
 HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-30}"
 NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS="${NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS:-10}"
+NPM_NATIVE_BINARY_MIN_BYTES="${NPM_NATIVE_BINARY_MIN_BYTES:-1000000}"
 TOTAL_STEPS=7
 CURRENT_STEP=0
 
 log() {
   printf '\033[1;34m[setup]\033[0m %s\n' "$*"
+}
+
+warn() {
+  printf '\033[1;33m[setup:warn]\033[0m %s\n' "$*" >&2
 }
 
 format_elapsed() {
@@ -104,6 +109,9 @@ configure_npm_network() {
   npm config set fetch-retries "$NPM_FETCH_RETRIES"
   npm config set fetch-retry-mintimeout "$NPM_FETCH_RETRY_MINTIMEOUT_MS"
   npm config set fetch-retry-maxtimeout "$NPM_FETCH_RETRY_MAXTIMEOUT_MS"
+  npm config set ignore-scripts false
+  npm config set optional true
+  npm config delete omit >/dev/null 2>&1 || true
 }
 
 die() {
@@ -182,11 +190,89 @@ ensure_env() {
   fi
 }
 
+anthropic_scope_dir() {
+  printf '%s/@anthropic-ai\n' "$1"
+}
+
+cleanup_claude_code_temp_dirs() {
+  local scope_dir
+  scope_dir="$(anthropic_scope_dir "$1")"
+  [ -d "$scope_dir" ] || return 0
+  rm -rf "$scope_dir"/.claude-code-*
+}
+
+claude_code_binary_path() {
+  printf '%s/@anthropic-ai/claude-code/bin/claude.exe\n' "$1"
+}
+
+file_size_bytes() {
+  stat -c%s "$1" 2>/dev/null || printf '0\n'
+}
+
+claude_command_in_conda_env() {
+  local claude_cmd
+  claude_cmd="$(command -v claude 2>/dev/null || true)"
+  [ -n "$claude_cmd" ] || return 1
+  case "$claude_cmd" in
+    "$CONDA_PREFIX"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_claude_code_healthy() {
+  local npm_root binary_path binary_size
+  npm_root="$(npm root -g 2>/dev/null)" || return 1
+  binary_path="$(claude_code_binary_path "$npm_root")"
+
+  claude_command_in_conda_env || return 1
+  [ -f "$binary_path" ] || return 1
+
+  binary_size="$(file_size_bytes "$binary_path")"
+  [ "$binary_size" -ge "$NPM_NATIVE_BINARY_MIN_BYTES" ] || return 1
+
+  claude --version >/dev/null 2>&1
+}
+
+install_claude_code_package() {
+  npm install -g \
+    --include=optional \
+    --ignore-scripts=false \
+    --foreground-scripts \
+    --loglevel=info \
+    --progress=true \
+    "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  hash -r
+}
+
 install_claude_code() {
+  local npm_root scope_dir status
   log "安装/更新 Claude Code 到 conda 环境: $ENV_NAME"
   conda activate "$ENV_NAME"
+  npm_root="$(npm root -g)"
+  scope_dir="$(anthropic_scope_dir "$npm_root")"
+  cleanup_claude_code_temp_dirs "$npm_root"
   log "正在通过 npm 下载/安装 Claude Code；网络慢时可能需要几分钟。"
-  run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g --loglevel=info --progress=true "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  set +e
+  run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" install_claude_code_package
+  status="$?"
+  set -e
+  hash -r
+
+  if [ "$status" -ne 0 ]; then
+    warn "Claude Code 安装失败，正在清理 npm 残留后重试。"
+    rm -rf "$scope_dir/claude-code" "$scope_dir"/.claude-code-*
+    run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "重新安装 Claude Code $CLAUDE_CODE_VERSION" install_claude_code_package
+    hash -r
+  fi
+
+  if ! is_claude_code_healthy; then
+    warn "检测到 Claude Code native binary 未正确安装，正在强制清理并重装。"
+    rm -rf "$scope_dir/claude-code" "$scope_dir"/.claude-code-*
+    run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "修复 Claude Code native binary" install_claude_code_package
+    hash -r
+  fi
+
+  is_claude_code_healthy || die "Claude Code 安装后自检失败。请检查网络、npm 代理，或设置 CLAUDE_CODE_VERSION 为已知可用版本后重试。"
   claude --version
 }
 

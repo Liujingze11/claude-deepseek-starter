@@ -6,6 +6,8 @@ Ubuntu/Linux 一键安装 Claude Code，并接入 DeepSeek API。
 
 安装后会创建一个命令 `claude-deepseek`，在任何项目目录里运行它就能用 DeepSeek 启动 Claude Code。
 
+启动器每次都会先进入专用 conda 环境 `claude-code-deepseek`，再在你当前项目目录里启动 Claude Code。如果 Claude Code 自动更新后留下半安装状态，启动器会先修复这个 conda 环境，然后继续启动。
+
 ## 安装
 
 ```bash
@@ -41,7 +43,15 @@ cd ~/projects/my-project
 claude-deepseek
 ```
 
+也可以直接指定项目目录：
+
+```bash
+claude-deepseek ~/projects/my-project
+```
+
 也可以通过桌面启动器 `Claude Code DeepSeek` 启动（安装脚本自动创建）。
+
+如果看到 `检测到 Claude Code 更新未完成，正在修复当前 conda 环境`，请保持终端打开。它只会修复 `claude-code-deepseek` 这个 conda 环境里的 Claude Code，不会修改你的项目文件、系统 Node.js 或其他 conda 环境。
 
 ## 测试连接
 
@@ -57,6 +67,7 @@ claude-deepseek
 - 创建 `.env` 保存 DeepSeek 配置
 - 创建启动命令 `~/.local/bin/claude-deepseek`
 - 创建桌面启动器 `~/.local/share/applications/claude-deepseek.desktop`
+- 启动前检查 Claude Code，自动修复当前 conda 环境里中断的 npm/native binary 更新
 
 ## 升级
 

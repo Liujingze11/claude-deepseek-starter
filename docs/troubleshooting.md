@@ -72,10 +72,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVer
 
 ## `claude: command not found` After It Worked Before
 
-Claude Code can disappear after an interrupted npm global package update. Remove leftover temporary package directories and reinstall:
+Claude Code can disappear after an interrupted npm global package update. On Linux, `claude-deepseek` checks for this before launch and repairs the dedicated conda environment automatically.
+
+If automatic repair still fails, remove the broken package from that conda environment and reinstall:
 
 ```bash
 conda activate claude-code-deepseek
-rm -rf "$(npm root -g)"/.claude-code-*
-npm install -g @anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/.claude-code-*
+npm install -g --include=optional --ignore-scripts=false --foreground-scripts @anthropic-ai/claude-code
+```
+
+The repair only touches the npm global package directory of the active conda environment. It does not remove project files, system Node.js packages, or other conda environments.
+
+## `claude native binary not installed`
+
+This means the JavaScript wrapper package exists, but the platform-native Claude Code binary was not installed. It usually happens when npm optional dependencies were skipped, postinstall scripts did not run, or an update was interrupted.
+
+On Linux, run `claude-deepseek` again. The launcher checks whether the native binary is still a tiny placeholder file and reinstalls Claude Code inside `claude-code-deepseek` when needed.
+
+For a manual fix:
+
+```bash
+conda activate claude-code-deepseek
+rm -rf "$(npm root -g)"/@anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/.claude-code-*
+npm install -g --include=optional --ignore-scripts=false --foreground-scripts @anthropic-ai/claude-code
 ```

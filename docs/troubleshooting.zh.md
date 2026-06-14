@@ -72,10 +72,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ClaudeCodeVer
 
 ## `claude: command not found`，之前明明能用
 
-Claude Code 的 npm 全局包更新中断后，可能留下临时目录并导致 `claude` 命令消失。可以删除残留目录后重装：
+Claude Code 的 npm 全局包更新中断后，可能留下临时目录并导致 `claude` 命令消失。Linux 上的 `claude-deepseek` 会在启动前检查这个问题，并自动修复专用 conda 环境。
+
+如果自动修复仍然失败，可以手动清理这个 conda 环境里的坏包后重装：
 
 ```bash
 conda activate claude-code-deepseek
-rm -rf "$(npm root -g)"/.claude-code-*
-npm install -g @anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/.claude-code-*
+npm install -g --include=optional --ignore-scripts=false --foreground-scripts @anthropic-ai/claude-code
+```
+
+这个修复只会动当前 conda 环境里的 npm 全局包目录，不会删除你的项目文件、系统 Node.js 包或其他 conda 环境。
+
+## `claude native binary not installed`
+
+这表示 Claude Code 的 JavaScript 包壳存在，但对应平台的 native binary 没装好。常见原因是 npm optional dependency 被跳过、postinstall 没执行，或者更新中途被中断。
+
+Linux 上可以直接重新运行 `claude-deepseek`。启动器会检查 native binary 是否还是几百字节的占位文件，如果坏了，会在 `claude-code-deepseek` 环境里自动重装 Claude Code。
+
+手动修复命令：
+
+```bash
+conda activate claude-code-deepseek
+rm -rf "$(npm root -g)"/@anthropic-ai/claude-code
+rm -rf "$(npm root -g)"/@anthropic-ai/.claude-code-*
+npm install -g --include=optional --ignore-scripts=false --foreground-scripts @anthropic-ai/claude-code
 ```
