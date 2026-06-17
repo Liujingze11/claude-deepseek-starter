@@ -17,6 +17,27 @@ export HTTP_PROXY=http://proxy-host:proxy-port
 
 Then re-run the installer.
 
+On macOS, the installer uses HTTP/1.1, resume support, and retries for Miniforge downloads by default. If downloads still disconnect repeatedly, run:
+
+```bash
+cd macos
+CURL_HTTP_VERSION=http1.1 ./install.command
+```
+
+You can also download the matching Miniforge installer manually, then let the installer continue:
+
+```bash
+cd macos
+MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
+If you have a mirror URL:
+
+```bash
+cd macos
+MINIFORGE_URL=https://mirror.example.com/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
 ## conda Environment Creation Fails
 
 This usually means conda-forge is unreachable or the network was interrupted. Re-run the installer after the network is stable. The installer reuses the existing environment when possible.

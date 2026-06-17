@@ -5,11 +5,17 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="${ENV_NAME:-claude-code-deepseek}"
 CONDA_HOME="${CONDA_HOME:-$HOME/miniforge3}"
 MINIFORGE_VERSION="${MINIFORGE_VERSION:-latest}"
+MINIFORGE_URL="${MINIFORGE_URL:-}"
+MINIFORGE_INSTALLER="${MINIFORGE_INSTALLER:-}"
 LAUNCHER_NAME="${LAUNCHER_NAME:-claude-deepseek}"
 CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-latest}"
 DOWNLOAD_MAX_TIME_SECONDS="${DOWNLOAD_MAX_TIME_SECONDS:-1800}"
 DOWNLOAD_RETRIES="${DOWNLOAD_RETRIES:-5}"
 DOWNLOAD_RETRY_DELAY_SECONDS="${DOWNLOAD_RETRY_DELAY_SECONDS:-3}"
+CURL_HTTP_VERSION="${CURL_HTTP_VERSION:-http1.1}"
+CURL_CONNECT_TIMEOUT_SECONDS="${CURL_CONNECT_TIMEOUT_SECONDS:-30}"
+CURL_SPEED_LIMIT_BYTES="${CURL_SPEED_LIMIT_BYTES:-1024}"
+CURL_SPEED_TIME_SECONDS="${CURL_SPEED_TIME_SECONDS:-60}"
 NPM_FETCH_TIMEOUT_MS="${NPM_FETCH_TIMEOUT_MS:-1200000}"
 NPM_FETCH_RETRIES="${NPM_FETCH_RETRIES:-5}"
 NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
@@ -24,7 +30,7 @@ log() {
 }
 
 warn() {
-  printf '\033[1;33m[setup:warn]\033[0m %s\n' "$*"
+  printf '\033[1;33m[setup:warn]\033[0m %s\n' "$*" >&2
 }
 
 format_elapsed() {
@@ -40,12 +46,21 @@ step() {
 run_with_heartbeat() {
   local interval="$HEARTBEAT_INTERVAL_SECONDS"
   if [ "${1:-}" = "--interval" ]; then
-    interval="$2"
+    if [ "$#" -lt 2 ]; then
+      die "run_with_heartbeat 缺少 --interval 秒数"
+    fi
+    interval="${2:-$HEARTBEAT_INTERVAL_SECONDS}"
     shift 2
   fi
 
-  local label="$1"
-  shift
+  local label="${1:-任务}"
+  if [ "$#" -gt 0 ]; then
+    shift
+  fi
+
+  if [ "$#" -eq 0 ]; then
+    die "run_with_heartbeat 缺少要执行的命令: $label"
+  fi
 
   local start pid heartbeat_pid status elapsed
   start="$(date +%s)"
@@ -58,7 +73,7 @@ run_with_heartbeat() {
       sleep "$interval"
       if kill -0 "$pid" 2>/dev/null; then
         elapsed="$(($(date +%s) - start))"
-        log "仍在执行：$label。已用时：$(format_elapsed "$elapsed")。请不要关闭窗口。"
+        log "仍在执行：${label}。已用时：$(format_elapsed "$elapsed")。请不要关闭窗口。"
       fi
     done
   ) &
@@ -80,28 +95,53 @@ curl_retry_all_errors_args() {
   fi
 }
 
-download_file() {
-  local url="$1"
-  local output="$2"
-  local retry_all_errors
-  retry_all_errors="$(curl_retry_all_errors_args)"
+curl_http_version_args() {
+  case "${CURL_HTTP_VERSION:-auto}" in
+    http1.1)
+      printf '%s\n' '--http1.1'
+      ;;
+    http2)
+      printf '%s\n' '--http2'
+      ;;
+    auto|"")
+      ;;
+    *)
+      warn "未知 CURL_HTTP_VERSION=${CURL_HTTP_VERSION}，将使用 curl 默认 HTTP 版本"
+      ;;
+  esac
+}
 
+download_file() {
+  local url="${1:-}"
+  local output="${2:-}"
+  [ -n "$url" ] || die "download_file 缺少下载 URL"
+  [ -n "$output" ] || die "download_file 缺少输出路径"
+
+  local retry_all_errors
+  local retry_args=()
+  local http_version_args=()
+  retry_all_errors="$(curl_retry_all_errors_args || true)"
   if [ -n "$retry_all_errors" ]; then
-    curl -fL --progress-bar \
-      --connect-timeout 30 \
-      --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
-      --retry "$DOWNLOAD_RETRIES" \
-      --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
-      --retry-all-errors \
-      "$url" -o "$output"
-  else
-    curl -fL --progress-bar \
-      --connect-timeout 30 \
-      --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
-      --retry "$DOWNLOAD_RETRIES" \
-      --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
-      "$url" -o "$output"
+    retry_args+=("$retry_all_errors")
   fi
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && http_version_args+=("$arg")
+  done < <(curl_http_version_args)
+
+  log "开始下载：$url"
+  log "如下载长时间卡住或反复断开，可设置代理后重试，例如：export HTTPS_PROXY=http://127.0.0.1:7890"
+
+  curl "${http_version_args[@]}" \
+    -fL --progress-bar \
+    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
+    --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
+    --retry "$DOWNLOAD_RETRIES" \
+    --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
+    "${retry_args[@]}" \
+    --continue-at - \
+    --speed-limit "$CURL_SPEED_LIMIT_BYTES" \
+    --speed-time "$CURL_SPEED_TIME_SECONDS" \
+    "$url" -o "$output"
 }
 
 configure_npm_network() {
@@ -131,6 +171,52 @@ ensure_curl() {
   command -v curl >/dev/null 2>&1 || die "缺少 curl。macOS 通常自带 curl，请联系 IT 检查系统环境。"
 }
 
+macos_product_version() {
+  sw_vers -productVersion 2>/dev/null || printf '%s\n' "unknown"
+}
+
+curl_version_line() {
+  curl --version 2>/dev/null | sed -n '1p' || printf '%s\n' "unknown"
+}
+
+preflight_macos() {
+  ensure_macos
+
+  local macos_version machine bash_major curl_version
+  macos_version="$(macos_product_version)"
+  machine="$(uname -m)"
+  bash_major="${BASH_VERSION%%.*}"
+
+  case "$machine" in
+    arm64|x86_64)
+      ;;
+    *)
+      die "不支持的 CPU 架构: ${machine}。此安装器仅支持 Apple Silicon arm64 和 Intel x86_64。"
+      ;;
+  esac
+
+  case "$bash_major" in
+    ""|*[!0-9]*)
+      warn "无法识别 Bash 版本: ${BASH_VERSION:-unknown}"
+      ;;
+    *)
+      if [ "$bash_major" -lt 3 ]; then
+        die "当前 Bash 版本过旧: ${BASH_VERSION:-unknown}。请用 macOS 自带 Terminal 运行 install.command。"
+      fi
+      ;;
+  esac
+
+  ensure_curl
+  curl_version="$(curl_version_line)"
+
+  log "检测到 macOS ${macos_version}，架构 ${machine}"
+  log "Bash 版本: ${BASH_VERSION:-unknown}"
+  log "curl 版本: ${curl_version}"
+  if [ "$macos_version" = "unknown" ]; then
+    warn "无法读取 macOS 版本，将继续按当前架构和工具能力尝试安装。"
+  fi
+}
+
 detect_miniforge_installer() {
   local machine
   machine="$(uname -m)"
@@ -139,6 +225,21 @@ detect_miniforge_installer() {
     x86_64) echo "Miniforge3-MacOSX-x86_64.sh" ;;
     *) die "不支持的 CPU 架构: $machine" ;;
   esac
+}
+
+miniforge_download_url() {
+  local installer="$1"
+
+  if [ -n "$MINIFORGE_URL" ]; then
+    printf '%s\n' "$MINIFORGE_URL"
+    return
+  fi
+
+  if [ "$MINIFORGE_VERSION" = "latest" ]; then
+    printf 'https://github.com/conda-forge/miniforge/releases/latest/download/%s\n' "$installer"
+  else
+    printf 'https://github.com/conda-forge/miniforge/releases/download/%s/%s\n' "$MINIFORGE_VERSION" "$installer"
+  fi
 }
 
 ensure_conda() {
@@ -153,17 +254,44 @@ ensure_conda() {
   fi
 
   log "未检测到 conda，开始安装 Miniforge 到 $CONDA_HOME"
-  local installer url tmp_file
+  local installer url tmp_file installer_file
+  tmp_file=""
   installer="$(detect_miniforge_installer)"
-  if [ "$MINIFORGE_VERSION" = "latest" ]; then
-    url="https://github.com/conda-forge/miniforge/releases/latest/download/$installer"
+
+  if [ -n "$MINIFORGE_INSTALLER" ]; then
+    if [ ! -f "$MINIFORGE_INSTALLER" ]; then
+      die "MINIFORGE_INSTALLER 指向的文件不存在: $MINIFORGE_INSTALLER"
+    fi
+    if [ ! -s "$MINIFORGE_INSTALLER" ]; then
+      die "MINIFORGE_INSTALLER 指向的文件为空: $MINIFORGE_INSTALLER"
+    fi
+    installer_file="$MINIFORGE_INSTALLER"
+    log "使用本地 Miniforge 安装包: $installer_file"
   else
-    url="https://github.com/conda-forge/miniforge/releases/download/$MINIFORGE_VERSION/$installer"
+    url="$(miniforge_download_url "$installer")"
+    log "将使用 Miniforge 安装包: $installer"
+    if [ -n "$MINIFORGE_URL" ]; then
+      log "使用自定义 Miniforge 下载地址: $MINIFORGE_URL"
+    fi
+
+    tmp_file="$(mktemp "/tmp/$installer.XXXXXX")"
+    if ! run_with_heartbeat "下载 Miniforge" download_file "$url" "$tmp_file"; then
+      rm -f "$tmp_file"
+      die "Miniforge 下载失败。请检查网络或代理后重试。可尝试：
+  export HTTPS_PROXY=http://127.0.0.1:7890
+  export HTTP_PROXY=http://127.0.0.1:7890
+  CURL_HTTP_VERSION=http1.1 ./install.command
+
+如果 GitHub 下载仍然很慢，也可以先手动下载对应架构安装包，再运行：
+  MINIFORGE_INSTALLER=/path/to/$installer ./install.command"
+    fi
+    installer_file="$tmp_file"
   fi
 
-  tmp_file="$(mktemp "/tmp/$installer.XXXXXX")"
-  run_with_heartbeat "下载 Miniforge" download_file "$url" "$tmp_file"
-  run_with_heartbeat "安装 Miniforge 到 $CONDA_HOME" bash "$tmp_file" -b -p "$CONDA_HOME"
+  if ! run_with_heartbeat "安装 Miniforge 到 $CONDA_HOME" bash "$installer_file" -b -p "$CONDA_HOME"; then
+    rm -f "$tmp_file"
+    die "Miniforge 安装失败。请删除不完整目录后重试：$CONDA_HOME"
+  fi
   rm -f "$tmp_file"
 }
 
@@ -409,8 +537,7 @@ PLIST
 
 main() {
   step "检查 macOS 环境"
-  ensure_macos
-  ensure_curl
+  preflight_macos
   chmod +x "$PROJECT_DIR/run-claude.command" "$PROJECT_DIR/verify-deepseek.command" 2>/dev/null || true
 
   step "检查或安装 Miniforge"

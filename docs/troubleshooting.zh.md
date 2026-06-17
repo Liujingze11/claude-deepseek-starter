@@ -17,6 +17,27 @@ export HTTP_PROXY=http://代理地址:端口
 
 然后重新运行安装器。
 
+macOS 安装器默认会用 HTTP/1.1、断点续传和重试下载 Miniforge。若仍然反复断开，可以显式运行：
+
+```bash
+cd macos
+CURL_HTTP_VERSION=http1.1 ./install.command
+```
+
+也可以先手动下载对应架构的 Miniforge 安装包，再让安装器继续：
+
+```bash
+cd macos
+MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
+如果有可用镜像地址：
+
+```bash
+cd macos
+MINIFORGE_URL=https://mirror.example.com/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
 ## conda 环境创建失败
 
 这通常表示 conda-forge 无法访问，或者网络中断。等网络稳定后重新运行安装器。已有环境会尽量复用。

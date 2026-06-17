@@ -19,7 +19,34 @@ Uses Miniforge + conda isolated environment. No need for Homebrew, Node.js, or n
 
 The installer shows numbered setup steps and heartbeat messages during long-running work. First-time installation may take several minutes while Miniforge, conda packages, npm packages, and Claude Code are downloaded.
 
+At startup, the script checks the macOS version, CPU architecture, Bash version, and curl version, then selects the Apple Silicon or Intel Miniforge installer automatically.
+
 During the Claude Code step, npm runs with `--loglevel=info --progress=true`, and the installer prints a heartbeat every 10 seconds. If you see messages like `仍在执行：安装 Claude Code`, the installer is still running. Keep the window open while those messages continue.
+
+## Slow or Interrupted Miniforge Downloads
+
+The installer downloads Miniforge with HTTP/1.1, resume support, and retries by default. If GitHub Release downloads are still slow, configure a proxy before running:
+
+```bash
+cd macos
+export HTTPS_PROXY=http://127.0.0.1:7890
+export HTTP_PROXY=http://127.0.0.1:7890
+CURL_HTTP_VERSION=http1.1 ./install.command
+```
+
+You can also download the matching Miniforge installer with a browser or download manager, then continue:
+
+```bash
+cd macos
+MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
+Or use your own mirror URL:
+
+```bash
+cd macos
+MINIFORGE_URL=https://mirror.example.com/Miniforge3-MacOSX-arm64.sh ./install.command
+```
 
 ## Install a Specific Claude Code Version
 
@@ -33,6 +60,7 @@ CLAUDE_CODE_VERSION=<known-working-version> ./install.command
 ## What the Script Does
 
 - Detects whether your Mac is Apple Silicon or Intel.
+- Checks basic macOS, Bash, and curl information.
 - If conda is not present, installs the appropriate Miniforge to `~/miniforge3`.
 - Creates the conda environment `claude-code-deepseek`.
 - Installs Node.js, npm, git, curl, and Claude Code in the isolated environment.

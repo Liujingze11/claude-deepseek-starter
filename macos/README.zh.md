@@ -19,7 +19,34 @@
 
 安装器会显示步骤编号，并在耗时较长的步骤中输出提示。首次安装可能需要几分钟，因为需要下载 Miniforge、conda 软件包、npm 软件包和 Claude Code。
 
+开始安装时，脚本会先检测 macOS 版本、CPU 架构、Bash 版本和 curl 版本，然后自动选择 Apple Silicon 或 Intel 对应的 Miniforge 安装包。
+
 Claude Code 安装步骤会使用 `--loglevel=info --progress=true` 运行 npm，并每 10 秒输出一次心跳提示。如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭窗口。
+
+## Miniforge 下载慢或反复断开
+
+安装器默认使用 HTTP/1.1、断点续传和重试来下载 Miniforge。如果 GitHub Release 下载仍然很慢，可以先配置代理再运行：
+
+```bash
+cd macos
+export HTTPS_PROXY=http://127.0.0.1:7890
+export HTTP_PROXY=http://127.0.0.1:7890
+CURL_HTTP_VERSION=http1.1 ./install.command
+```
+
+也可以先用浏览器或下载器手动下载对应架构的 Miniforge 安装包，然后继续安装：
+
+```bash
+cd macos
+MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
+```
+
+如果你有自己的镜像地址：
+
+```bash
+cd macos
+MINIFORGE_URL=https://mirror.example.com/Miniforge3-MacOSX-arm64.sh ./install.command
+```
 
 ## 安装指定 Claude Code 版本
 
@@ -33,6 +60,7 @@ CLAUDE_CODE_VERSION=<已知可用版本号> ./install.command
 ## 脚本会做什么
 
 - 检查当前 Mac 是 Apple Silicon 还是 Intel。
+- 检查 macOS、Bash 和 curl 基本信息。
 - 没有 conda 时，自动安装对应架构的 Miniforge 到 `~/miniforge3`。
 - 创建 conda 环境 `claude-code-deepseek`。
 - 在隔离环境里安装 Node.js、npm、git、curl、Claude Code。
