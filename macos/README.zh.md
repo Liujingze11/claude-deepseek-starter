@@ -4,7 +4,7 @@
 
 给公司 Mac 用户使用的一键安装包：双击安装 Claude Code，并接入 DeepSeek API。
 
-采用 Miniforge + conda 隔离环境，不要求提前安装 Homebrew、Node.js 或 npm。
+安装器会自动选择安装方式：如果系统已有可用的 Node.js、npm 和 git，就跳过 Miniforge；否则使用 Miniforge + conda 隔离环境，不要求提前安装 Homebrew、Node.js 或 npm。
 
 ## 安装
 
@@ -17,15 +17,22 @@
 
 ## 安装过程中会看到什么
 
-安装器会显示步骤编号，并在耗时较长的步骤中输出提示。首次安装可能需要几分钟，因为需要下载 Miniforge、conda 软件包、npm 软件包和 Claude Code。
+安装器会显示步骤编号，并在耗时较长的步骤中输出提示。首次安装可能需要几分钟，因为可能需要下载 Miniforge、conda 软件包、npm 软件包和 Claude Code。
 
-开始安装时，脚本会先检测 macOS 版本、CPU 架构、Bash 版本和 curl 版本，然后自动选择 Apple Silicon 或 Intel 对应的 Miniforge 安装包。
+开始安装时，脚本会先检测 macOS 版本、CPU 架构、Bash 版本、curl 版本和系统 Node.js/npm/git。如果系统工具可用，会直接使用系统 Node.js，并把 Claude Code 安装到用户目录 `~/.claude-deepseek/npm-global`；否则自动选择 Apple Silicon 或 Intel 对应的 Miniforge 安装包。
 
 Claude Code 安装步骤会使用 `--loglevel=info --progress=true` 运行 npm，并每 10 秒输出一次心跳提示。如果看到类似“仍在执行：安装 Claude Code”的提示，说明安装器还在运行。只要这些提示还在出现，请不要关闭窗口。
 
 ## Miniforge 下载慢或反复断开
 
-安装器默认使用 HTTP/1.1、断点续传和重试来下载 Miniforge。如果 GitHub Release 下载仍然很慢，可以先配置代理再运行：
+如果系统已有可用的 Node.js、npm 和 git，安装器会自动跳过 Miniforge。如果你想强制跳过 Miniforge：
+
+```bash
+cd macos
+INSTALL_MODE=system ./install.command
+```
+
+如果系统没有这些工具，安装器会使用 HTTP/1.1、断点续传和重试来下载 Miniforge。如果 GitHub Release 下载仍然很慢，可以先配置代理再运行：
 
 ```bash
 cd macos
@@ -57,13 +64,28 @@ cd macos
 CLAUDE_CODE_VERSION=<已知可用版本号> ./install.command
 ```
 
+## 安装模式
+
+默认 `INSTALL_MODE=auto`：
+
+- 已有 conda 时，复用 conda 隔离环境。
+- 没有 conda 但已有 Node.js 18+、npm 和 git 时，跳过 Miniforge，使用系统 Node.js。
+- 这些都没有时，安装 Miniforge。
+
+也可以手动指定：
+
+```bash
+INSTALL_MODE=system ./install.command  # 强制使用系统 Node.js/npm/git
+INSTALL_MODE=conda ./install.command   # 强制使用 Miniforge/conda 隔离环境
+```
+
 ## 脚本会做什么
 
 - 检查当前 Mac 是 Apple Silicon 还是 Intel。
 - 检查 macOS、Bash 和 curl 基本信息。
-- 没有 conda 时，自动安装对应架构的 Miniforge 到 `~/miniforge3`。
-- 创建 conda 环境 `claude-code-deepseek`。
-- 在隔离环境里安装 Node.js、npm、git、curl、Claude Code。
+- 自动选择系统 Node.js 模式或 Miniforge/conda 模式。
+- 需要 conda 时，自动安装对应架构的 Miniforge 到 `~/miniforge3`，并创建环境 `claude-code-deepseek`。
+- 安装 Claude Code。
 - 创建 `.env` 保存 DeepSeek 配置。
 - 创建命令行启动器 `~/.local/bin/claude-deepseek`。
 - 创建桌面启动器 `Claude Code DeepSeek`。
@@ -98,6 +120,7 @@ claude-deepseek ~/projects/my-project
 conda env remove -n claude-code-deepseek
 rm -f ~/.local/bin/claude-deepseek
 rm -rf ~/Desktop/"Claude Code DeepSeek.app"
+rm -rf ~/.claude-deepseek
 ```
 
 然后删除本文件夹即可。

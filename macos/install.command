@@ -4,6 +4,10 @@ set -Eeuo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="${ENV_NAME:-claude-code-deepseek}"
 CONDA_HOME="${CONDA_HOME:-$HOME/miniforge3}"
+INSTALL_MODE="${INSTALL_MODE:-auto}"
+INSTALL_BACKEND=""
+DIRECT_NPM_PREFIX="${DIRECT_NPM_PREFIX:-$HOME/.claude-deepseek/npm-global}"
+MIN_SYSTEM_NODE_MAJOR="${MIN_SYSTEM_NODE_MAJOR:-18}"
 MINIFORGE_VERSION="${MINIFORGE_VERSION:-latest}"
 MINIFORGE_URL="${MINIFORGE_URL:-}"
 MINIFORGE_INSTALLER="${MINIFORGE_INSTALLER:-}"
@@ -22,7 +26,7 @@ NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
 NPM_FETCH_RETRY_MAXTIMEOUT_MS="${NPM_FETCH_RETRY_MAXTIMEOUT_MS:-120000}"
 HEARTBEAT_INTERVAL_SECONDS="${HEARTBEAT_INTERVAL_SECONDS:-30}"
 NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS="${NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS:-10}"
-TOTAL_STEPS=7
+TOTAL_STEPS=6
 CURRENT_STEP=0
 
 log() {
@@ -227,6 +231,37 @@ detect_miniforge_installer() {
   esac
 }
 
+node_major_version() {
+  local version major
+  version="$(node -v 2>/dev/null || true)"
+  version="${version#v}"
+  major="${version%%.*}"
+  case "$major" in
+    ""|*[!0-9]*)
+      return 1
+      ;;
+    *)
+      printf '%s\n' "$major"
+      ;;
+  esac
+}
+
+system_runtime_ready() {
+  command -v node >/dev/null 2>&1 || return 1
+  command -v npm >/dev/null 2>&1 || return 1
+  command -v git >/dev/null 2>&1 || return 1
+
+  local node_major
+  node_major="$(node_major_version)" || return 1
+  [ "$node_major" -ge "$MIN_SYSTEM_NODE_MAJOR" ]
+}
+
+describe_system_runtime() {
+  log "系统 Node.js: $(node -v 2>/dev/null || printf '%s' unknown)"
+  log "系统 npm: $(npm -v 2>/dev/null || printf '%s' unknown)"
+  log "系统 git: $(git --version 2>/dev/null || printf '%s' unknown)"
+}
+
 miniforge_download_url() {
   local installer="$1"
 
@@ -240,6 +275,46 @@ miniforge_download_url() {
   else
     printf 'https://github.com/conda-forge/miniforge/releases/download/%s/%s\n' "$MINIFORGE_VERSION" "$installer"
   fi
+}
+
+select_install_backend() {
+  case "$INSTALL_MODE" in
+    auto|conda|system)
+      ;;
+    *)
+      die "未知 INSTALL_MODE=${INSTALL_MODE}。可用值: auto, conda, system"
+      ;;
+  esac
+
+  if [ "$INSTALL_MODE" = "conda" ]; then
+    INSTALL_BACKEND="conda"
+    log "INSTALL_MODE=conda，将使用 Miniforge/conda 隔离环境"
+    return
+  fi
+
+  if [ "$INSTALL_MODE" = "system" ]; then
+    system_runtime_ready || die "INSTALL_MODE=system 需要系统已有 node >= $MIN_SYSTEM_NODE_MAJOR、npm 和 git。请先安装这些工具，或改用 INSTALL_MODE=conda。"
+    INSTALL_BACKEND="system"
+    log "INSTALL_MODE=system，将跳过 Miniforge，使用系统 Node.js/npm/git"
+    describe_system_runtime
+    return
+  fi
+
+  if command -v conda >/dev/null 2>&1 || [ -x "$CONDA_HOME/bin/conda" ]; then
+    INSTALL_BACKEND="conda"
+    log "检测到 conda，将使用 conda 隔离环境"
+    return
+  fi
+
+  if system_runtime_ready; then
+    INSTALL_BACKEND="system"
+    log "未检测到 conda，但检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
+    describe_system_runtime
+    return
+  fi
+
+  INSTALL_BACKEND="conda"
+  log "未检测到可用系统 Node.js/npm/git，将使用 Miniforge 安装隔离环境"
 }
 
 ensure_conda() {
@@ -295,6 +370,22 @@ ensure_conda() {
   rm -f "$tmp_file"
 }
 
+prepare_runtime() {
+  select_install_backend
+
+  if [ "$INSTALL_BACKEND" = "system" ]; then
+    mkdir -p "$DIRECT_NPM_PREFIX/bin"
+    export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
+    log "Claude Code 将安装到用户目录: $DIRECT_NPM_PREFIX"
+    return
+  fi
+
+  ensure_conda
+  load_conda
+  ensure_env
+  conda activate "$ENV_NAME"
+}
+
 load_conda() {
   if command -v conda >/dev/null 2>&1; then
     eval "$(conda shell.bash hook)"
@@ -315,10 +406,21 @@ ensure_env() {
 }
 
 install_claude_code() {
-  log "安装/更新 Claude Code 到 conda 环境: $ENV_NAME"
-  conda activate "$ENV_NAME"
+  if [ "$INSTALL_BACKEND" = "conda" ]; then
+    log "安装/更新 Claude Code 到 conda 环境: $ENV_NAME"
+    conda activate "$ENV_NAME"
+  else
+    log "安装/更新 Claude Code 到用户 npm 目录: $DIRECT_NPM_PREFIX"
+    mkdir -p "$DIRECT_NPM_PREFIX"
+    export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
+  fi
+
   log "正在通过 npm 下载/安装 Claude Code；网络慢时可能需要几分钟。"
-  run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g --loglevel=info --progress=true "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  if [ "$INSTALL_BACKEND" = "conda" ]; then
+    run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g --loglevel=info --progress=true "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  else
+    run_with_heartbeat --interval "$NPM_INSTALL_HEARTBEAT_INTERVAL_SECONDS" "安装 Claude Code $CLAUDE_CODE_VERSION" npm install -g --prefix "$DIRECT_NPM_PREFIX" --loglevel=info --progress=true "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+  fi
   claude --version || warn "Claude Code 已安装，但当前窗口暂时找不到 claude 命令；重新打开后通常会生效。"
 }
 
@@ -352,6 +454,9 @@ write_env_file() {
     chmod 600 "$PROJECT_DIR/.env"
     log "已创建 $PROJECT_DIR/.env"
   fi
+
+  set_env_value "$PROJECT_DIR/.env" "CLAUDE_DEEPSEEK_INSTALL_MODE" "$INSTALL_BACKEND"
+  set_env_value "$PROJECT_DIR/.env" "CLAUDE_DEEPSEEK_NPM_PREFIX" "$DIRECT_NPM_PREFIX"
 
   if grep -Eq '^ANTHROPIC_AUTH_TOKEN=sk-' "$PROJECT_DIR/.env"; then
     log ".env 已配置 DeepSeek API Key"
@@ -426,6 +531,7 @@ set -Eeuo pipefail
 PROJECT_DIR="%PROJECT_DIR%"
 ENV_NAME="${ENV_NAME:-claude-code-deepseek}"
 CONDA_HOME="${CONDA_HOME:-$HOME/miniforge3}"
+DIRECT_NPM_PREFIX="${DIRECT_NPM_PREFIX:-$HOME/.claude-deepseek/npm-global}"
 
 fail() {
   printf '\033[1;31m%s\033[0m\n' "$*" >&2
@@ -442,6 +548,23 @@ load_conda() {
   else
     fail "找不到 conda。请先双击 install.command 完成安装。"
   fi
+}
+
+activate_runtime() {
+  case "${CLAUDE_DEEPSEEK_INSTALL_MODE:-conda}" in
+    system)
+      DIRECT_NPM_PREFIX="${CLAUDE_DEEPSEEK_NPM_PREFIX:-$DIRECT_NPM_PREFIX}"
+      export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
+      command -v claude >/dev/null 2>&1 || fail "找不到 claude。请先双击 install.command 完成安装。"
+      ;;
+    conda|"")
+      load_conda
+      conda activate "$ENV_NAME"
+      ;;
+    *)
+      fail "未知安装模式: ${CLAUDE_DEEPSEEK_INSTALL_MODE}。请重新运行 install.command。"
+      ;;
+  esac
 }
 
 load_env_file() {
@@ -492,8 +615,7 @@ if [ ! -d "$PROJECT_PATH" ]; then
   fail "项目文件夹不存在: $PROJECT_PATH"
 fi
 
-load_conda
-conda activate "$ENV_NAME"
+activate_runtime
 cd "$PROJECT_PATH"
 exec claude
 SCRIPT
@@ -540,24 +662,19 @@ main() {
   preflight_macos
   chmod +x "$PROJECT_DIR/run-claude.command" "$PROJECT_DIR/verify-deepseek.command" 2>/dev/null || true
 
-  step "检查或安装 Miniforge"
-  ensure_conda
-
-  step "加载 conda"
-  load_conda
-
-  step "创建或复用 conda 环境"
-  ensure_env
+  step "准备 Node/npm 环境"
+  prepare_runtime
 
   step "配置 npm 网络超时和重试"
-  conda activate "$ENV_NAME"
   configure_npm_network
 
   step "安装 Claude Code 版本: $CLAUDE_CODE_VERSION"
   install_claude_code
 
-  step "写入配置并创建启动器"
+  step "写入配置"
   write_env_file
+
+  step "创建启动器"
   install_cli_launcher
   install_desktop_launcher
 

@@ -8,6 +8,13 @@ Keep the window open while progress or heartbeat messages continue.
 
 ## Miniforge Download Fails
 
+On macOS, if Node.js 18+, npm, and git are already installed, you can skip Miniforge:
+
+```bash
+cd macos
+INSTALL_MODE=system ./install.command
+```
+
 Check whether your network can reach GitHub. If you use a proxy, configure it before running the installer:
 
 ```bash

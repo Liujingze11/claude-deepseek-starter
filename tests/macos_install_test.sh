@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL_SCRIPT="$REPO_ROOT/macos/install.command"
+RUN_CLAUDE_SCRIPT="$REPO_ROOT/macos/run-claude.command"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -250,6 +251,125 @@ ensure_conda
   assert_not_contains "$stderr" "unbound variable"
 }
 
+test_auto_mode_skips_miniforge_when_system_runtime_is_ready() {
+  source_install_functions
+
+  local fake_bin="$TMP_DIR/system-runtime-bin"
+  local stdout="$TMP_DIR/system-runtime.out"
+  local stderr="$TMP_DIR/system-runtime.err"
+  local prefix="$TMP_DIR/system-prefix"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/node" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' 'v20.11.1'
+EOF
+  cat > "$fake_bin/npm" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '10.2.4'
+EOF
+  cat > "$fake_bin/git" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' 'git version 2.44.0'
+EOF
+  chmod +x "$fake_bin/node" "$fake_bin/npm" "$fake_bin/git"
+
+  local snippet
+  snippet='
+PATH="'"$fake_bin"':/usr/bin:/bin:/usr/sbin:/sbin"
+DIRECT_NPM_PREFIX="'"$prefix"'"
+INSTALL_MODE=auto
+prepare_runtime
+printf "backend=%s\n" "$INSTALL_BACKEND"
+'
+
+  run_install_snippet "$snippet" "$stdout" "$stderr"
+
+  assert_contains "$stdout" "未检测到 conda，但检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
+  assert_contains "$stdout" "backend=system"
+  [ -d "$prefix/bin" ] || fail "system npm prefix bin directory should be created"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
+test_install_claude_code_system_mode_uses_user_npm_prefix() {
+  source_install_functions
+
+  local fake_bin="$TMP_DIR/system-install-bin"
+  local npm_args="$TMP_DIR/system-install-npm.args"
+  local stdout="$TMP_DIR/system-install.out"
+  local stderr="$TMP_DIR/system-install.err"
+  local prefix="$TMP_DIR/system-install-prefix"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/npm" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$npm_args"
+exit 0
+EOF
+  cat > "$fake_bin/claude" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' 'claude 1.0.0'
+EOF
+  chmod +x "$fake_bin/npm" "$fake_bin/claude"
+
+  local snippet
+  snippet='
+PATH="'"$fake_bin"':/usr/bin:/bin:/usr/sbin:/sbin"
+INSTALL_BACKEND=system
+DIRECT_NPM_PREFIX="'"$prefix"'"
+CLAUDE_CODE_VERSION=latest
+install_claude_code
+'
+
+  run_install_snippet "$snippet" "$stdout" "$stderr"
+
+  assert_contains "$npm_args" "--prefix"
+  assert_contains "$npm_args" "$prefix"
+  assert_contains "$npm_args" "@anthropic-ai/claude-code@latest"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
+test_write_env_file_records_system_install_mode() {
+  source_install_functions
+
+  local env_file="$PROJECT_DIR/.env"
+  local prefix="$TMP_DIR/env-system-prefix"
+  cp "$REPO_ROOT/.env.example" "$env_file"
+  printf '%s\n' 'ANTHROPIC_AUTH_TOKEN=sk-test' >> "$env_file"
+
+  INSTALL_BACKEND=system
+  DIRECT_NPM_PREFIX="$prefix"
+  write_env_file
+
+  assert_contains "$env_file" "CLAUDE_DEEPSEEK_INSTALL_MODE=system"
+  assert_contains "$env_file" "CLAUDE_DEEPSEEK_NPM_PREFIX=$prefix"
+}
+
+test_run_claude_system_mode_uses_npm_prefix_without_conda() {
+  local launcher_dir="$TMP_DIR/run-claude-system"
+  local project_dir="$TMP_DIR/project"
+  local prefix="$TMP_DIR/run-claude-prefix"
+  local marker="$TMP_DIR/run-claude-marker"
+  local stdout="$TMP_DIR/run-claude.out"
+  local stderr="$TMP_DIR/run-claude.err"
+  mkdir -p "$launcher_dir" "$project_dir" "$prefix/bin"
+  cp "$RUN_CLAUDE_SCRIPT" "$launcher_dir/run-claude.command"
+  cat > "$launcher_dir/.env" <<EOF
+ANTHROPIC_AUTH_TOKEN=sk-test
+CLAUDE_DEEPSEEK_INSTALL_MODE=system
+CLAUDE_DEEPSEEK_NPM_PREFIX=$prefix
+EOF
+  cat > "$prefix/bin/claude" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$PWD" > "$marker"
+EOF
+  chmod +x "$launcher_dir/run-claude.command" "$prefix/bin/claude"
+
+  /bin/bash "$launcher_dir/run-claude.command" "$project_dir" >"$stdout" 2>"$stderr"
+
+  assert_contains "$marker" "$project_dir"
+  assert_not_contains "$stderr" "找不到 conda"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
 test_invalid_curl_http_version_warns_without_becoming_curl_arg() {
   source_install_functions
 
@@ -342,6 +462,10 @@ test_preflight_reports_macos_runtime_details
 test_download_file_uses_stable_resume_curl_options
 test_miniforge_url_overrides_default_download_url
 test_local_miniforge_installer_skips_download
+test_auto_mode_skips_miniforge_when_system_runtime_is_ready
+test_install_claude_code_system_mode_uses_user_npm_prefix
+test_write_env_file_records_system_install_mode
+test_run_claude_system_mode_uses_npm_prefix_without_conda
 test_invalid_curl_http_version_warns_without_becoming_curl_arg
 test_detect_miniforge_installer_uses_macos_architecture
 test_ensure_conda_explains_download_failures

@@ -8,6 +8,13 @@
 
 ## Miniforge 下载失败
 
+macOS 上如果已经安装了 Node.js 18+、npm 和 git，可以跳过 Miniforge：
+
+```bash
+cd macos
+INSTALL_MODE=system ./install.command
+```
+
 先检查当前网络是否能访问 GitHub。如果需要代理，请先配置代理：
 
 ```bash

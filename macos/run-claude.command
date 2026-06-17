@@ -4,6 +4,7 @@ set -Eeuo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="${ENV_NAME:-claude-code-deepseek}"
 CONDA_HOME="${CONDA_HOME:-$HOME/miniforge3}"
+DIRECT_NPM_PREFIX="${DIRECT_NPM_PREFIX:-$HOME/.claude-deepseek/npm-global}"
 
 fail() {
   printf '\033[1;31m%s\033[0m\n' "$*" >&2
@@ -20,6 +21,23 @@ load_conda() {
   else
     fail "找不到 conda。请先双击 install.command 完成安装。"
   fi
+}
+
+activate_runtime() {
+  case "${CLAUDE_DEEPSEEK_INSTALL_MODE:-conda}" in
+    system)
+      DIRECT_NPM_PREFIX="${CLAUDE_DEEPSEEK_NPM_PREFIX:-$DIRECT_NPM_PREFIX}"
+      export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
+      command -v claude >/dev/null 2>&1 || fail "找不到 claude。请先双击 install.command 完成安装。"
+      ;;
+    conda|"")
+      load_conda
+      conda activate "$ENV_NAME"
+      ;;
+    *)
+      fail "未知安装模式: ${CLAUDE_DEEPSEEK_INSTALL_MODE}。请重新运行 install.command。"
+      ;;
+  esac
 }
 
 load_env_file() {
@@ -71,7 +89,6 @@ if [ ! -d "$PROJECT_PATH" ]; then
   fail "项目文件夹不存在: $PROJECT_PATH"
 fi
 
-load_conda
-conda activate "$ENV_NAME"
+activate_runtime
 cd "$PROJECT_PATH"
 exec claude
