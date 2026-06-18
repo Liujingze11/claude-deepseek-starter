@@ -172,8 +172,31 @@ EOF
   assert_contains "$args_file" "--continue-at"
   assert_contains "$args_file" "--speed-limit"
   assert_contains "$args_file" "--speed-time"
+  assert_not_contains "$args_file" "--max-time"
   assert_contains "$args_file" "--retry-all-errors"
   assert_contains "$args_file" "https://example.test/Miniforge.sh"
+}
+
+test_download_file_allows_explicit_total_timeout_override() {
+  source_install_functions
+
+  local fake_bin="$TMP_DIR/timeout-bin"
+  local args_file="$TMP_DIR/curl-timeout.args"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/curl" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = "--help" ]; then
+  exit 0
+fi
+printf '%s\n' "\$@" > "$args_file"
+exit 0
+EOF
+  chmod +x "$fake_bin/curl"
+
+  PATH="$fake_bin:$PATH" DOWNLOAD_MAX_TIME_SECONDS=7200 download_file "https://example.test/Miniforge.sh" "$TMP_DIR/Miniforge-timeout.sh"
+
+  assert_contains "$args_file" "--max-time"
+  assert_contains "$args_file" "7200"
 }
 
 test_miniforge_url_overrides_default_download_url() {
@@ -251,6 +274,47 @@ ensure_conda
   assert_not_contains "$stderr" "unbound variable"
 }
 
+test_vendor_miniforge_installer_is_used_before_download() {
+  source_install_functions
+
+  local stdout="$TMP_DIR/vendor-installer.out"
+  local stderr="$TMP_DIR/vendor-installer.err"
+  local conda_home="$TMP_DIR/vendor-conda"
+  local vendor_installer="$PROJECT_DIR/vendor/Miniforge3-MacOSX-arm64.sh"
+  local download_marker="$TMP_DIR/vendor-download-called"
+  mkdir -p "$PROJECT_DIR/vendor"
+  printf '%s\n' '#!/usr/bin/env bash' > "$vendor_installer"
+
+  local snippet
+  snippet='
+CONDA_HOME="'"$conda_home"'"
+PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+detect_miniforge_installer() { printf "%s\n" "Miniforge3-MacOSX-arm64.sh"; }
+download_file() {
+  : > "'"$download_marker"'"
+}
+run_with_heartbeat() {
+  local label="${1:-}"
+  shift
+  case "$label" in
+    "安装 Miniforge 到 $CONDA_HOME")
+      [ "${1:-}" = "bash" ] || return 1
+      [ "${2:-}" = "'"$vendor_installer"'" ] || return 1
+      return 0
+      ;;
+    *) "$@" ;;
+  esac
+}
+ensure_conda
+'
+
+  run_install_snippet "$snippet" "$stdout" "$stderr"
+
+  assert_contains "$stdout" "使用随包 Miniforge 安装包: $vendor_installer"
+  assert_file_absent "$download_marker"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
 test_auto_mode_skips_miniforge_when_system_runtime_is_ready() {
   source_install_functions
 
@@ -284,9 +348,116 @@ printf "backend=%s\n" "$INSTALL_BACKEND"
 
   run_install_snippet "$snippet" "$stdout" "$stderr"
 
-  assert_contains "$stdout" "未检测到 conda，但检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
+  assert_contains "$stdout" "检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
   assert_contains "$stdout" "backend=system"
   [ -d "$prefix/bin" ] || fail "system npm prefix bin directory should be created"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
+test_auto_mode_uses_homebrew_before_miniforge_download() {
+  source_install_functions
+
+  local fake_bin="$TMP_DIR/homebrew-runtime-bin"
+  local stdout="$TMP_DIR/homebrew-runtime.out"
+  local stderr="$TMP_DIR/homebrew-runtime.err"
+  local brew_args="$TMP_DIR/homebrew.args"
+  local prefix="$TMP_DIR/homebrew-prefix"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/brew" <<EOF
+#!/bin/bash
+printf '%s\n' "\$@" > "$brew_args"
+cat > "$fake_bin/node" <<'NODE'
+#!/bin/bash
+printf '%s\n' 'v20.11.1'
+NODE
+cat > "$fake_bin/npm" <<'NPM'
+#!/bin/bash
+printf '%s\n' '10.2.4'
+NPM
+cat > "$fake_bin/git" <<'GIT'
+#!/bin/bash
+printf '%s\n' 'git version 2.44.0'
+GIT
+/bin/chmod +x "$fake_bin/node" "$fake_bin/npm" "$fake_bin/git"
+exit 0
+EOF
+  chmod +x "$fake_bin/brew"
+
+  local snippet
+  snippet='
+PATH="'"$fake_bin"':/usr/bin:/bin:/usr/sbin:/sbin"
+DIRECT_NPM_PREFIX="'"$prefix"'"
+INSTALL_MODE=auto
+prepare_runtime
+printf "backend=%s\n" "$INSTALL_BACKEND"
+'
+
+  run_install_snippet "$snippet" "$stdout" "$stderr"
+
+  assert_contains "$stdout" "检测到 Homebrew，将先通过 Homebrew 准备 Node.js/npm/git"
+  assert_contains "$stdout" "backend=system"
+  assert_contains "$brew_args" "install"
+  assert_contains "$brew_args" "node"
+  assert_contains "$brew_args" "git"
+  [ -d "$prefix/bin" ] || fail "homebrew path should still create user npm prefix"
+  assert_not_contains "$stderr" "unbound variable"
+}
+
+test_auto_mode_falls_back_to_vendor_when_homebrew_fails() {
+  source_install_functions
+
+  local fake_bin="$TMP_DIR/homebrew-fail-bin"
+  local stdout="$TMP_DIR/homebrew-fail.out"
+  local stderr="$TMP_DIR/homebrew-fail.err"
+  local conda_home="$TMP_DIR/homebrew-fail-conda"
+  local vendor_installer="$PROJECT_DIR/vendor/Miniforge3-MacOSX-arm64.sh"
+  mkdir -p "$fake_bin" "$PROJECT_DIR/vendor"
+  printf '%s\n' '#!/usr/bin/env bash' > "$vendor_installer"
+  cat > "$fake_bin/brew" <<'EOF'
+#!/bin/bash
+exit 1
+EOF
+  cat > "$fake_bin/node" <<'EOF'
+#!/bin/bash
+printf '%s\n' 'v12.22.0'
+EOF
+  cat > "$fake_bin/npm" <<'EOF'
+#!/bin/bash
+printf '%s\n' '6.14.0'
+EOF
+  cat > "$fake_bin/git" <<'EOF'
+#!/bin/bash
+printf '%s\n' 'git version 2.30.0'
+EOF
+  chmod +x "$fake_bin/brew" "$fake_bin/node" "$fake_bin/npm" "$fake_bin/git"
+
+  local snippet
+  snippet='
+PATH="'"$fake_bin"':/usr/bin:/bin:/usr/sbin:/sbin"
+CONDA_HOME="'"$conda_home"'"
+INSTALL_MODE=auto
+unset -f conda 2>/dev/null || true
+detect_miniforge_installer() { printf "%s\n" "Miniforge3-MacOSX-arm64.sh"; }
+run_with_heartbeat() {
+  local label="${1:-}"
+  shift
+  case "$label" in
+    "通过 Homebrew 安装 Node.js 和 git") return 1 ;;
+    "安装 Miniforge 到 $CONDA_HOME") return 0 ;;
+    *) "$@" ;;
+  esac
+}
+load_conda() { conda() { :; }; }
+ensure_env() { :; }
+prepare_runtime
+printf "backend=%s\n" "$INSTALL_BACKEND"
+'
+
+  run_install_snippet "$snippet" "$stdout" "$stderr"
+
+  assert_contains "$stderr" "Homebrew 准备 Node.js/npm/git 失败，将继续尝试 Miniforge 兜底路径。"
+  assert_contains "$stdout" "使用随包 Miniforge 安装包: $vendor_installer"
+  assert_contains "$stdout" "backend=conda"
   assert_not_contains "$stderr" "unbound variable"
 }
 
@@ -432,6 +603,7 @@ test_ensure_conda_explains_download_failures() {
   local stderr="$TMP_DIR/ensure-conda.err"
   local conda_home="$TMP_DIR/missing-conda"
   local snippet
+  rm -rf "$PROJECT_DIR/vendor"
   snippet='
 CONDA_HOME="'"$conda_home"'"
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
@@ -460,9 +632,13 @@ test_run_with_heartbeat_interval_requires_a_value
 test_run_with_heartbeat_prints_label_before_chinese_punctuation
 test_preflight_reports_macos_runtime_details
 test_download_file_uses_stable_resume_curl_options
+test_download_file_allows_explicit_total_timeout_override
 test_miniforge_url_overrides_default_download_url
 test_local_miniforge_installer_skips_download
+test_vendor_miniforge_installer_is_used_before_download
 test_auto_mode_skips_miniforge_when_system_runtime_is_ready
+test_auto_mode_uses_homebrew_before_miniforge_download
+test_auto_mode_falls_back_to_vendor_when_homebrew_fails
 test_install_claude_code_system_mode_uses_user_npm_prefix
 test_write_env_file_records_system_install_mode
 test_run_claude_system_mode_uses_npm_prefix_without_conda

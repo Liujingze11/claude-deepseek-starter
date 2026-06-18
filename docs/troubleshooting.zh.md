@@ -15,6 +15,13 @@ cd macos
 INSTALL_MODE=system ./install.command
 ```
 
+如果已经安装 Homebrew，也可以让脚本先用 Homebrew 准备依赖，避免直接下载 Miniforge：
+
+```bash
+cd macos
+INSTALL_MODE=brew ./install.command
+```
+
 先检查当前网络是否能访问 GitHub。如果需要代理，请先配置代理：
 
 ```bash
@@ -24,7 +31,7 @@ export HTTP_PROXY=http://代理地址:端口
 
 然后重新运行安装器。
 
-macOS 安装器默认会用 HTTP/1.1、断点续传和重试下载 Miniforge。若仍然反复断开，可以显式运行：
+macOS 安装器默认会用 HTTP/1.1、断点续传和重试下载 Miniforge，并且默认不设置 30 分钟总时长上限。若仍然反复断开，可以显式运行：
 
 ```bash
 cd macos
@@ -37,6 +44,8 @@ CURL_HTTP_VERSION=http1.1 ./install.command
 cd macos
 MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
 ```
+
+半离线分发时，也可以把安装包放到 `macos/vendor/` 或仓库根目录 `vendor/`，脚本会自动优先使用本地文件。
 
 如果有可用镜像地址：
 

@@ -15,6 +15,13 @@ cd macos
 INSTALL_MODE=system ./install.command
 ```
 
+If Homebrew is already installed, you can let the script prepare dependencies with Homebrew instead of downloading Miniforge directly:
+
+```bash
+cd macos
+INSTALL_MODE=brew ./install.command
+```
+
 Check whether your network can reach GitHub. If you use a proxy, configure it before running the installer:
 
 ```bash
@@ -24,7 +31,7 @@ export HTTP_PROXY=http://proxy-host:proxy-port
 
 Then re-run the installer.
 
-On macOS, the installer uses HTTP/1.1, resume support, and retries for Miniforge downloads by default. If downloads still disconnect repeatedly, run:
+On macOS, the installer uses HTTP/1.1, resume support, and retries for Miniforge downloads by default, and it no longer sets a 30-minute total download limit by default. If downloads still disconnect repeatedly, run:
 
 ```bash
 cd macos
@@ -37,6 +44,8 @@ You can also download the matching Miniforge installer manually, then let the in
 cd macos
 MINIFORGE_INSTALLER=/path/to/Miniforge3-MacOSX-arm64.sh ./install.command
 ```
+
+For semi-offline distribution, you can also put the installer under `macos/vendor/` or the repository root `vendor/`; the script will prefer the local file automatically.
 
 If you have a mirror URL:
 

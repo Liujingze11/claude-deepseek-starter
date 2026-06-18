@@ -13,13 +13,13 @@ MINIFORGE_URL="${MINIFORGE_URL:-}"
 MINIFORGE_INSTALLER="${MINIFORGE_INSTALLER:-}"
 LAUNCHER_NAME="${LAUNCHER_NAME:-claude-deepseek}"
 CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-latest}"
-DOWNLOAD_MAX_TIME_SECONDS="${DOWNLOAD_MAX_TIME_SECONDS:-1800}"
+DOWNLOAD_MAX_TIME_SECONDS="${DOWNLOAD_MAX_TIME_SECONDS:-0}"
 DOWNLOAD_RETRIES="${DOWNLOAD_RETRIES:-5}"
 DOWNLOAD_RETRY_DELAY_SECONDS="${DOWNLOAD_RETRY_DELAY_SECONDS:-3}"
 CURL_HTTP_VERSION="${CURL_HTTP_VERSION:-http1.1}"
-CURL_CONNECT_TIMEOUT_SECONDS="${CURL_CONNECT_TIMEOUT_SECONDS:-30}"
+CURL_CONNECT_TIMEOUT_SECONDS="${CURL_CONNECT_TIMEOUT_SECONDS:-45}"
 CURL_SPEED_LIMIT_BYTES="${CURL_SPEED_LIMIT_BYTES:-1024}"
-CURL_SPEED_TIME_SECONDS="${CURL_SPEED_TIME_SECONDS:-60}"
+CURL_SPEED_TIME_SECONDS="${CURL_SPEED_TIME_SECONDS:-180}"
 NPM_FETCH_TIMEOUT_MS="${NPM_FETCH_TIMEOUT_MS:-1200000}"
 NPM_FETCH_RETRIES="${NPM_FETCH_RETRIES:-5}"
 NPM_FETCH_RETRY_MINTIMEOUT_MS="${NPM_FETCH_RETRY_MINTIMEOUT_MS:-20000}"
@@ -115,6 +115,20 @@ curl_http_version_args() {
   esac
 }
 
+curl_max_time_args() {
+  case "${DOWNLOAD_MAX_TIME_SECONDS:-0}" in
+    ""|0)
+      ;;
+    *[!0-9]*)
+      warn "未知 DOWNLOAD_MAX_TIME_SECONDS=${DOWNLOAD_MAX_TIME_SECONDS}，将不设置下载总时长上限"
+      ;;
+    *)
+      printf '%s\n' '--max-time'
+      printf '%s\n' "$DOWNLOAD_MAX_TIME_SECONDS"
+      ;;
+  esac
+}
+
 download_file() {
   local url="${1:-}"
   local output="${2:-}"
@@ -122,30 +136,39 @@ download_file() {
   [ -n "$output" ] || die "download_file 缺少输出路径"
 
   local retry_all_errors
-  local retry_args=()
-  local http_version_args=()
+  local curl_args=()
   retry_all_errors="$(curl_retry_all_errors_args || true)"
-  if [ -n "$retry_all_errors" ]; then
-    retry_args+=("$retry_all_errors")
-  fi
   while IFS= read -r arg; do
-    [ -n "$arg" ] && http_version_args+=("$arg")
+    [ -n "$arg" ] && curl_args+=("$arg")
   done < <(curl_http_version_args)
+
+  curl_args+=(
+    -fL --progress-bar
+    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS"
+  )
+
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && curl_args+=("$arg")
+  done < <(curl_max_time_args)
+
+  curl_args+=(
+    --retry "$DOWNLOAD_RETRIES"
+    --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS"
+  )
+  if [ -n "$retry_all_errors" ]; then
+    curl_args+=("$retry_all_errors")
+  fi
+  curl_args+=(
+    --continue-at -
+    --speed-limit "$CURL_SPEED_LIMIT_BYTES"
+    --speed-time "$CURL_SPEED_TIME_SECONDS"
+  )
 
   log "开始下载：$url"
   log "如下载长时间卡住或反复断开，可设置代理后重试，例如：export HTTPS_PROXY=http://127.0.0.1:7890"
+  log "下载会断点续传；默认不设置总时长上限，只在长时间低速或断网时重试。"
 
-  curl "${http_version_args[@]}" \
-    -fL --progress-bar \
-    --connect-timeout "$CURL_CONNECT_TIMEOUT_SECONDS" \
-    --max-time "$DOWNLOAD_MAX_TIME_SECONDS" \
-    --retry "$DOWNLOAD_RETRIES" \
-    --retry-delay "$DOWNLOAD_RETRY_DELAY_SECONDS" \
-    "${retry_args[@]}" \
-    --continue-at - \
-    --speed-limit "$CURL_SPEED_LIMIT_BYTES" \
-    --speed-time "$CURL_SPEED_TIME_SECONDS" \
-    "$url" -o "$output"
+  curl "${curl_args[@]}" "$url" -o "$output"
 }
 
 configure_npm_network() {
@@ -277,18 +300,54 @@ miniforge_download_url() {
   fi
 }
 
+bundled_miniforge_installer() {
+  local installer="$1"
+  local candidate
+  for candidate in "$PROJECT_DIR/vendor/$installer" "$PROJECT_DIR/../vendor/$installer"; do
+    if [ -s "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+homebrew_available() {
+  command -v brew >/dev/null 2>&1
+}
+
+try_homebrew_runtime() {
+  log "检测到 Homebrew，将先通过 Homebrew 准备 Node.js/npm/git"
+  if ! run_with_heartbeat "通过 Homebrew 安装 Node.js 和 git" brew install node git; then
+    return 1
+  fi
+  system_runtime_ready || return 1
+  describe_system_runtime
+}
+
+ensure_homebrew_runtime() {
+  homebrew_available || die "未检测到 Homebrew，无法使用 INSTALL_MODE=brew。请安装 Homebrew，或改用 INSTALL_MODE=conda。"
+  try_homebrew_runtime || die "Homebrew 安装后仍未检测到可用 node >= $MIN_SYSTEM_NODE_MAJOR、npm 和 git。请检查 Homebrew 输出后重试。"
+}
+
 select_install_backend() {
   case "$INSTALL_MODE" in
-    auto|conda|system)
+    auto|conda|system|brew)
       ;;
     *)
-      die "未知 INSTALL_MODE=${INSTALL_MODE}。可用值: auto, conda, system"
+      die "未知 INSTALL_MODE=${INSTALL_MODE}。可用值: auto, conda, system, brew"
       ;;
   esac
 
   if [ "$INSTALL_MODE" = "conda" ]; then
     INSTALL_BACKEND="conda"
     log "INSTALL_MODE=conda，将使用 Miniforge/conda 隔离环境"
+    return
+  fi
+
+  if [ "$INSTALL_MODE" = "brew" ]; then
+    INSTALL_BACKEND="brew"
+    log "INSTALL_MODE=brew，将通过 Homebrew 准备 Node.js/npm/git"
     return
   fi
 
@@ -300,21 +359,83 @@ select_install_backend() {
     return
   fi
 
-  if command -v conda >/dev/null 2>&1 || [ -x "$CONDA_HOME/bin/conda" ]; then
-    INSTALL_BACKEND="conda"
-    log "检测到 conda，将使用 conda 隔离环境"
-    return
-  fi
-
   if system_runtime_ready; then
     INSTALL_BACKEND="system"
-    log "未检测到 conda，但检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
+    log "检测到可用系统 Node.js/npm/git，将跳过 Miniforge"
     describe_system_runtime
     return
   fi
 
+  if command -v conda >/dev/null 2>&1 || [ -x "$CONDA_HOME/bin/conda" ]; then
+    INSTALL_BACKEND="conda"
+    log "未检测到可用系统 Node.js/npm/git，但检测到 conda，将使用 conda 隔离环境"
+    return
+  fi
+
+  if homebrew_available; then
+    INSTALL_BACKEND="brew"
+    log "未检测到可用系统 Node.js/npm/git，但检测到 Homebrew，将先尝试 Homebrew"
+    return
+  fi
+
+  if [ -n "$(bundled_miniforge_installer "$(detect_miniforge_installer)" 2>/dev/null || true)" ]; then
+    INSTALL_BACKEND="conda"
+    log "检测到随包 Miniforge 安装包，将使用本地安装包创建隔离环境"
+    return
+  fi
+
+  if [ -n "$MINIFORGE_INSTALLER" ]; then
+    INSTALL_BACKEND="conda"
+    log "检测到 MINIFORGE_INSTALLER，将使用本地 Miniforge 安装包"
+    return
+  fi
+
+  if [ -n "$MINIFORGE_URL" ]; then
+    INSTALL_BACKEND="conda"
+    log "检测到 MINIFORGE_URL，将使用自定义 Miniforge 下载地址"
+    return
+  fi
+
   INSTALL_BACKEND="conda"
-  log "未检测到可用系统 Node.js/npm/git，将使用 Miniforge 安装隔离环境"
+  log "系统缺少 Node.js/npm/git、conda 和 Homebrew，最后兜底使用 Miniforge 下载"
+}
+
+prepare_system_npm_prefix() {
+  mkdir -p "$DIRECT_NPM_PREFIX/bin"
+  export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
+  log "Claude Code 将安装到用户目录: $DIRECT_NPM_PREFIX"
+}
+
+prepare_runtime() {
+  select_install_backend
+
+  if [ "$INSTALL_BACKEND" = "brew" ]; then
+    if [ "$INSTALL_MODE" = "brew" ]; then
+      ensure_homebrew_runtime
+      INSTALL_BACKEND="system"
+      prepare_system_npm_prefix
+      return
+    fi
+
+    if try_homebrew_runtime; then
+      INSTALL_BACKEND="system"
+      prepare_system_npm_prefix
+      return
+    fi
+
+    warn "Homebrew 准备 Node.js/npm/git 失败，将继续尝试 Miniforge 兜底路径。"
+    INSTALL_BACKEND="conda"
+  fi
+
+  if [ "$INSTALL_BACKEND" = "system" ]; then
+    prepare_system_npm_prefix
+    return
+  fi
+
+  ensure_conda
+  load_conda
+  ensure_env
+  conda activate "$ENV_NAME"
 }
 
 ensure_conda() {
@@ -342,6 +463,8 @@ ensure_conda() {
     fi
     installer_file="$MINIFORGE_INSTALLER"
     log "使用本地 Miniforge 安装包: $installer_file"
+  elif installer_file="$(bundled_miniforge_installer "$installer")"; then
+    log "使用随包 Miniforge 安装包: $installer_file"
   else
     url="$(miniforge_download_url "$installer")"
     log "将使用 Miniforge 安装包: $installer"
@@ -368,22 +491,6 @@ ensure_conda() {
     die "Miniforge 安装失败。请删除不完整目录后重试：$CONDA_HOME"
   fi
   rm -f "$tmp_file"
-}
-
-prepare_runtime() {
-  select_install_backend
-
-  if [ "$INSTALL_BACKEND" = "system" ]; then
-    mkdir -p "$DIRECT_NPM_PREFIX/bin"
-    export PATH="$DIRECT_NPM_PREFIX/bin:$PATH"
-    log "Claude Code 将安装到用户目录: $DIRECT_NPM_PREFIX"
-    return
-  fi
-
-  ensure_conda
-  load_conda
-  ensure_env
-  conda activate "$ENV_NAME"
 }
 
 load_conda() {
