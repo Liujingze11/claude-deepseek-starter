@@ -387,7 +387,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$runner" %*
   $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runner`""
   $shortcut.WorkingDirectory = $env:USERPROFILE
   $shortcut.WindowStyle = 1
-  $icoPath = Join-Path $InstallDir "icons\launcher.ico"
+  $icoPath = Join-Path (Split-Path $InstallDir -Parent) "icons\launcher.ico"
   if (Test-Path $icoPath) {
     $shortcut.IconLocation = $icoPath
   }

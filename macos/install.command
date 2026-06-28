@@ -755,7 +755,7 @@ SCRIPT
 PLIST
 
   # Copy icon if it exists (failure is non-fatal — .app works without it)
-  local icon_src="$PROJECT_DIR/icons/launcher.icns"
+  local icon_src="$PROJECT_DIR/../icons/launcher.icns"
   if [ -f "$icon_src" ]; then
     cp "$icon_src" "$app_path/Contents/Resources/launcher.icns" || true
     log "已设置桌面图标"

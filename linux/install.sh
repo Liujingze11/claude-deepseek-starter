@@ -299,7 +299,7 @@ install_launcher() {
   local apps_dir="$HOME/.local/share/applications"
   mkdir -p "$apps_dir"
   local desktop_file="$apps_dir/claude-deepseek.desktop"
-  local icon_path="$PROJECT_DIR/icons/launcher.png"
+  local icon_path="$PROJECT_DIR/../icons/launcher.png"
 
   cat > "$desktop_file" <<DESKTOP
 [Desktop Entry]
